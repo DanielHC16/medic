@@ -1,26 +1,214 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #2f3e34;
+  --foreground: #2f3e34;
+  --color-border: rgba(47, 62, 52, 0.14);
+  --color-muted-foreground: #5d6b64;
+  --color-primary: #4a7c59;
+  --color-primary-strong: #2f3e34;
+  --color-secondary: #a3b18a;
+  --color-surface: #f6f7f2;
+  --color-surface-muted: #e5e7eb;
+  --color-info: #5dade2;
+  --color-danger: #d97b7b;
+  --color-warning: #e9c46a;
+  --font-heading: "Atkinson Hyperlegible", Arial, Helvetica, Verdana, sans-serif;
+  --font-body: Inter, "Open Sans", "Noto Sans", Arial, sans-serif;
+  --font-label: "Atkinson Hyperlegible", Arial, Helvetica, Verdana, sans-serif;
+  --font-code: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-border: var(--color-border);
+  --color-muted-foreground: var(--color-muted-foreground);
+  --color-primary: var(--color-primary);
+  --color-primary-strong: var(--color-primary-strong);
+  --color-secondary: var(--color-secondary);
+  --color-surface: var(--color-surface);
+  --color-surface-muted: var(--color-surface-muted);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-code);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at 12% 10%, rgba(93, 173, 226, 0.14), transparent 18%),
+    radial-gradient(circle at 88% 12%, rgba(233, 196, 106, 0.14), transparent 15%),
+    linear-gradient(180deg, #0f1712 0%, #1a261f 34%, #4a7c59 100%),
+    var(--background);
+  color: var(--color-surface);
+  font-family: var(--font-body);
+  line-height: 1.5;
+  margin: 0;
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+}
+
+button,
+.font-label {
+  font-family: var(--font-label);
+}
+
+input,
+select,
+textarea {
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  caret-color: var(--foreground);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-muted-foreground);
+  opacity: 1;
+}
+
+select option {
+  color: var(--foreground);
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--foreground);
+  box-shadow: 0 0 0 1000px #ffffff inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+.medic-field {
+  background: #fbfcf8 !important;
+  border: 1px solid rgba(47, 62, 52, 0.2) !important;
+  border-radius: 1rem;
+  box-shadow:
+    inset 0 1px 2px rgba(47, 62, 52, 0.04),
+    0 1px 0 rgba(255, 255, 255, 0.48);
+  color: var(--foreground) !important;
+  -webkit-text-fill-color: var(--foreground) !important;
+  min-height: 3.25rem;
+  outline: none;
+  padding: 0.85rem 1rem;
+  width: 100%;
+}
+
+.medic-field::placeholder {
+  color: #72827b !important;
+  opacity: 1;
+}
+
+.medic-field:focus {
+  border-color: rgba(74, 124, 89, 0.45) !important;
+  box-shadow:
+    0 0 0 4px rgba(163, 177, 138, 0.22),
+    inset 0 1px 2px rgba(47, 62, 52, 0.04);
+}
+
+select.medic-field,
+input.medic-field[type="date"],
+input.medic-field[type="datetime-local"] {
+  color-scheme: light;
+}
+
+textarea.medic-field {
+  min-height: 7rem;
+  resize: vertical;
+}
+
+.medic-button {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(47, 62, 52, 0.14);
+  border-radius: 999px;
+  box-shadow: 0 8px 20px rgba(47, 62, 52, 0.08);
+  color: var(--foreground);
+  display: inline-flex;
+  font-family: var(--font-label);
+  font-size: 0.95rem;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.72rem 1.2rem;
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.medic-button:hover {
+  background: var(--color-surface-muted);
+  border-color: rgba(74, 124, 89, 0.3);
+  box-shadow: 0 12px 24px rgba(47, 62, 52, 0.11);
+  transform: translateY(-1px);
+}
+
+.medic-button:focus-visible {
+  outline: 3px solid rgba(93, 173, 226, 0.28);
+  outline-offset: 2px;
+}
+
+.medic-button-primary {
+  background: linear-gradient(180deg, #dce5cf 0%, #a3b18a 100%);
+  border-color: rgba(74, 124, 89, 0.28);
+  color: var(--foreground);
+}
+
+.medic-button-primary:hover {
+  background: linear-gradient(180deg, #d0ddbf 0%, #96a87d 100%);
+}
+
+.medic-button-soft {
+  background: #eef1ea;
+  border-color: rgba(47, 62, 52, 0.1);
+  color: var(--foreground);
+}
+
+.medic-button-soft:hover {
+  background: #e5e7eb;
+}
+
+.medic-button[disabled],
+.medic-button[aria-busy="true"] {
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.72;
+  transform: none;
+}
+
+code,
+pre {
+  font-family: var(--font-code);
+}
+
+::selection {
+  background: rgba(74, 124, 89, 0.22);
+  color: var(--color-primary-strong);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
 }
