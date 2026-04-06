@@ -1,0 +1,475 @@
+MEDIC PROGRAM FLOWCHART / PSEUDOCODE
+Based on the current project routes, database flow, and the user flow provided.
+
+CURRENT CORE ROUTES
+- /
+- /sign-in
+- /sign-up
+- /join
+- /patient/dashboard
+- /patient/care-circle
+- /patient/medications
+- /patient/schedule
+- /caregiver/dashboard
+- /family/dashboard
+- /profile
+- /wellness
+
+==================================================
+1. APP STARTUP FLOW
+==================================================
+
+START APP
+  LOAD session cookie
+
+  IF session exists AND session is valid THEN
+    GET current user
+    REDIRECT based on role:
+      IF role == patient THEN
+        GO TO /patient/dashboard
+      ELSE IF role == caregiver THEN
+        GO TO /caregiver/dashboard
+      ELSE IF role == family_member THEN
+        GO TO /family/dashboard
+      END IF
+  ELSE
+    SHOW landing page (/)
+    DISPLAY:
+      - Sign In
+      - Sign Up
+  END IF
+
+
+==================================================
+2. SIGN-UP FLOW
+==================================================
+
+WHEN user taps Sign Up
+  OPEN /sign-up
+  COLLECT:
+    - role
+    - first name
+    - last name
+    - email
+    - phone
+    - password
+
+  IF role == patient THEN
+    COLLECT:
+      - date of birth
+      - assistance level
+
+    CALL POST /api/auth/register
+
+    SERVER LOGIC:
+      VALIDATE role and input
+      CHECK if email or phone already exists
+      CREATE user record
+      CREATE patient profile record
+      CREATE session cookie
+
+    REDIRECT TO /patient/dashboard
+  END IF
+
+  IF role == caregiver OR role == family_member THEN
+    OPTIONAL COLLECT:
+      - invite code
+      - approval mode preference
+
+    CALL POST /api/auth/register
+
+    SERVER LOGIC:
+      VALIDATE role and input
+      CHECK if email or phone already exists
+      CREATE user record
+
+      IF invite code is provided THEN
+        VALIDATE invitation
+
+        IF invite is active THEN
+          IF invitation approval mode == auto OR override == auto THEN
+            CREATE care_relationship with status = active
+            MARK invitation as accepted
+          ELSE
+            CREATE care_relationship with status = pending
+          END IF
+        ELSE
+          RETURN registration error
+        END IF
+      END IF
+
+      CREATE session cookie
+
+    IF role == caregiver THEN
+      REDIRECT TO /caregiver/dashboard
+    ELSE
+      REDIRECT TO /family/dashboard
+    END IF
+  END IF
+
+
+==================================================
+3. SIGN-IN FLOW
+==================================================
+
+WHEN user taps Sign In
+  OPEN /sign-in
+  COLLECT:
+    - email or phone
+    - password
+
+  CALL POST /api/auth/login
+
+  SERVER LOGIC:
+    FIND matching user by email or phone
+    VERIFY password
+
+    IF credentials are invalid THEN
+      RETURN error
+    ELSE
+      UPDATE last login timestamp
+      CREATE session cookie
+      REDIRECT based on role:
+        patient -> /patient/dashboard
+        caregiver -> /caregiver/dashboard
+        family_member -> /family/dashboard
+    END IF
+
+
+==================================================
+4. PATIENT FIRST-TIME FLOW
+==================================================
+
+IF signed-in user role == patient THEN
+  LOAD patient dashboard data
+  SHOW Patient Home
+
+  PATIENT CAN OPEN:
+    - Home
+    - Medications
+    - Schedule
+    - Care Circle
+    - Wellness
+    - Profile
+
+  TARGET STRUCTURE FROM PRODUCT FLOW:
+    - Home
+    - Health Info
+    - Care Circle
+    - Alerts
+    - Settings
+
+  NOTE:
+    Health Info, Alerts, and Settings are still future sections in the current codebase.
+
+
+==================================================
+5. PATIENT CARE CIRCLE FLOW
+==================================================
+
+WHEN patient opens Care Circle
+  LOAD:
+    - active connections
+    - pending requests
+    - invite history
+
+  DISPLAY:
+    - connected caregiver(s)
+    - connected family member(s)
+    - pending requests
+    - who has access
+
+  IF patient taps Generate Invite THEN
+    CHOOSE:
+      - caregiver invite
+      - family member invite
+    CHOOSE approval mode:
+      - manual
+      - auto
+
+    CALL POST /api/invitations
+
+    SERVER LOGIC:
+      CONFIRM current user is patient
+      CREATE care_invitations row
+      GENERATE:
+        - invite code
+        - invite link (/join?code=XXXXXX)
+      RETURN invitation preview
+
+    PATIENT MAY SHARE:
+      - invite code
+      - invite link
+      - QR payload based on the same link/code
+  END IF
+
+  IF patient taps Approve on a pending relationship THEN
+    CALL POST /api/relationships/[id]/approve
+
+    SERVER LOGIC:
+      CONFIRM current user is patient
+      UPDATE relationship_status = active
+      SET approved_by_user_id
+      SET joined_at if empty
+  END IF
+
+  IF patient taps Remove Access THEN
+    CALL POST /api/relationships/[id]/revoke
+
+    SERVER LOGIC:
+      CONFIRM current user is patient
+      UPDATE relationship_status = revoked
+  END IF
+
+
+==================================================
+6. SHARED JOIN-A-PATIENT FLOW
+==================================================
+
+UNIVERSAL RULE:
+  User must be signed in first
+
+WHEN caregiver or family member selects Join a Patient
+  OPEN /join
+
+  IF current user role == patient THEN
+    REDIRECT TO /patient/care-circle
+  END IF
+
+  DISPLAY JOIN OPTIONS:
+    - Scan QR
+    - Enter invite code
+    - Open invite link
+
+  NORMALIZE INPUT INTO invite code
+  CALL GET /api/invitations?code=INVITE_CODE
+
+  IF no invitation found THEN
+    SHOW "Invalid invite"
+    STOP
+  END IF
+
+  IF invitation status != active THEN
+    SHOW "Invite is no longer active"
+    STOP
+  END IF
+
+  SHOW patient preview:
+    - patient name
+    - target role
+    - approval mode
+
+  WHEN user taps Confirm Join
+    CALL POST /api/invitations/accept
+
+    SERVER LOGIC:
+      CONFIRM current user is not a patient
+      VALIDATE invitation
+
+      IF relationship already exists THEN
+        RETURN existing/active result
+      ELSE
+        IF approval mode == auto THEN
+          CREATE care_relationship with status = active
+          SET joined_at
+          MARK invitation as accepted
+        ELSE
+          CREATE care_relationship with status = pending
+        END IF
+      END IF
+
+    REDIRECT TO role dashboard
+
+
+==================================================
+7. CAREGIVER FLOW
+==================================================
+
+IF signed-in user role == caregiver THEN
+  LOAD caregiver dashboard
+  FETCH linked patients
+
+  IF no linked patient exists THEN
+    SHOW "No Patient Linked Yet"
+    SHOW Join a Patient panel
+  ELSE
+    SELECT patient using:
+      - URL patientId if provided
+      - first active linked patient
+      - otherwise first linked patient
+
+    LOAD selected patient summary
+    SHOW:
+      - patient status
+      - medication/reminders
+      - logs/monitoring
+      - alerts/emergency actions
+
+    IF caregiver has multiple patients THEN
+      SHOW Patient Switcher
+    END IF
+  END IF
+
+  CURRENT CODEBASE SUPPORT:
+    - caregiver dashboard
+    - join flow
+    - medication visibility and management
+    - wellness access
+    - profile
+
+  TARGET CLEAN STRUCTURE:
+    - Dashboard
+    - Monitoring
+    - Profile
+
+
+==================================================
+8. FAMILY MEMBER FLOW
+==================================================
+
+IF signed-in user role == family_member THEN
+  LOAD family dashboard
+  FETCH linked patients
+
+  IF no linked patient exists THEN
+    SHOW "No Patient Linked Yet"
+    SHOW Join a Patient panel
+  ELSE
+    SELECT patient using:
+      - URL patientId if provided
+      - first active linked patient
+      - otherwise first linked patient
+
+    LOAD selected patient summary
+    SHOW:
+      - patient updates
+      - notifications/alerts
+      - activity summary
+      - messaging/check-ins
+
+    IF family member has multiple patients THEN
+      SHOW Patient Switcher
+    END IF
+  END IF
+
+  CURRENT CODEBASE SUPPORT:
+    - family dashboard
+    - join flow
+    - lighter patient update view
+    - appointment visibility
+    - profile
+
+  TARGET CLEAN STRUCTURE:
+    - Dashboard
+    - Updates
+    - Profile
+
+
+==================================================
+9. ROLE-BASED DASHBOARD DECISION FLOW
+==================================================
+
+FUNCTION getDefaultRouteForRole(role)
+  IF role == patient THEN
+    RETURN /patient/dashboard
+  ELSE IF role == caregiver THEN
+    RETURN /caregiver/dashboard
+  ELSE IF role == family_member THEN
+    RETURN /family/dashboard
+  ELSE
+    RETURN /
+  END IF
+END FUNCTION
+
+
+==================================================
+10. ACCESS CONTROL FLOW
+==================================================
+
+BEFORE opening protected page
+  CHECK session
+
+  IF no session THEN
+    REDIRECT TO /sign-in
+  END IF
+
+  IF page requires patient role AND current role != patient THEN
+    REDIRECT TO current user's default dashboard
+  END IF
+
+  IF page needs patient-scoped data THEN
+    IF current role == patient THEN
+      USE current user's own patientUserId
+    ELSE
+      CHECK if selected patient belongs to linked relationships
+      IF not allowed THEN
+        REDIRECT TO current user's default dashboard
+      END IF
+    END IF
+  END IF
+
+
+==================================================
+11. SIMPLE END-TO-END MASTER FLOW
+==================================================
+
+START
+  OPEN APP
+
+  IF logged in THEN
+    GO TO role dashboard
+  ELSE
+    SHOW Sign In / Sign Up
+  END IF
+
+  IF user chooses Sign Up THEN
+    CREATE account
+
+    IF role == patient THEN
+      GO TO Patient Home
+      OPTIONALLY create and share invite
+    ELSE
+      GO TO caregiver/family dashboard
+
+      IF no patient linked THEN
+        JOIN using QR / code / link
+        PREVIEW patient
+        CONFIRM join
+
+        IF auto-approved THEN
+          OPEN dashboard with patient data
+        ELSE
+          WAIT for patient approval
+        END IF
+      END IF
+    END IF
+  END IF
+
+  IF patient receives pending request THEN
+    OPEN Care Circle
+    APPROVE or REVOKE access
+  END IF
+
+  AFTER approval or auto-link
+    OPEN dashboard based on role
+
+    PATIENT:
+      see care circle, medications, schedule, wellness, profile
+
+    CAREGIVER:
+      see patient dashboard, medications, monitoring, switcher if multiple patients
+
+    FAMILY MEMBER:
+      see updates, appointments, lighter monitoring, switcher if multiple patients
+END
+
+
+==================================================
+12. IMPLEMENTATION NOTE
+==================================================
+
+In the current project:
+- Invite codes and invite links are already functional.
+- QR generation/scanning is not yet fully implemented in the UI.
+- The clean app structure in your written flow is partly implemented and partly planned.
+- The shared linking backend already supports the same logic that QR can use later.
