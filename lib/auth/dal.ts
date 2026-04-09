@@ -70,11 +70,7 @@ export async function requirePatientScope(requestedPatientId?: string | null) {
   const activePatients = linkedPatients.filter(
     (relationship) => relationship.relationshipStatus === "active",
   );
-  const selectedPatientUserId =
-    requestedPatientId ||
-    activePatients[0]?.patientUserId ||
-    linkedPatients[0]?.patientUserId ||
-    null;
+  const selectedPatientUserId = requestedPatientId || activePatients[0]?.patientUserId || null;
 
   if (!selectedPatientUserId) {
     return {
@@ -83,14 +79,16 @@ export async function requirePatientScope(requestedPatientId?: string | null) {
     };
   }
 
-  const allowed = linkedPatients.some(
+  const allowed = activePatients.some(
     (relationship) =>
-      relationship.patientUserId === selectedPatientUserId &&
-      relationship.relationshipStatus !== "revoked",
+      relationship.patientUserId === selectedPatientUserId,
   );
 
   if (!allowed) {
-    redirect(getDefaultRouteForRole(user));
+    return {
+      patientUserId: null,
+      user,
+    };
   }
 
   return {

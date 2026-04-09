@@ -1,12 +1,36 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+
+import type { CareInvitationPreview } from '@/lib/medic-types';
 
 export default function SignUpPage() {
+  return (
+    <Suspense fallback={<SignUpPageShell inviteCode="" />}>
+      <SignUpPageContent />
+    </Suspense>
+  );
+}
+
+function SignUpPageContent() {
+  const searchParams = useSearchParams();
+  const inviteCode = searchParams.get('code')?.trim().toUpperCase() ?? '';
+
+  return <SignUpPageShell inviteCode={inviteCode} />;
+}
+
+function SignUpPageShell({ inviteCode }: { inviteCode: string }) {
   const router = useRouter();
+
+  const assistanceValueMap: Record<string, string> = {
+    caregiver: 'caregiver_assistance',
+    limited: 'limited_mobility',
+    none: 'independent',
+    walking: 'minimal_assistance',
+  };
 
   // 1. Wizard Step State (Now 1 through 5)
   const [step, setStep] = useState(1);
@@ -30,6 +54,57 @@ export default function SignUpPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inviteMessage, setInviteMessage] = useState<string | null>(null);
+  const [invitePreview, setInvitePreview] = useState<CareInvitationPreview | null>(null);
+
+  useEffect(() => {
+    if (!inviteCode) {
+      setInvitePreview(null);
+      setInviteMessage(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadInvitePreview() {
+      try {
+        const response = await fetch(`/api/invitations?code=${inviteCode}`);
+        const payload = (await response.json()) as {
+          preview: CareInvitationPreview | null;
+        };
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!payload.preview || payload.preview.status !== 'active') {
+          setInvitePreview(null);
+          setInviteMessage(`Invite ${inviteCode} is not active anymore.`);
+          return;
+        }
+
+        setInvitePreview(payload.preview);
+        setInviteMessage(
+          `Invite detected for ${payload.preview.patientDisplayName}. This account will be created as a ${payload.preview.memberRole === 'family_member' ? 'family member' : 'caregiver'}.`,
+        );
+        setFormData((prev) => ({
+          ...prev,
+          role: payload.preview!.memberRole,
+        }));
+      } catch {
+        if (!cancelled) {
+          setInvitePreview(null);
+          setInviteMessage(`Unable to validate invite ${inviteCode} right now.`);
+        }
+      }
+    }
+
+    void loadInvitePreview();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteCode]);
 
   // Helpers to update form fields
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,6 +113,10 @@ export default function SignUpPage() {
   };
 
   const handleRoleSelect = (role: string) => {
+    if (invitePreview) {
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, role }));
   };
 
@@ -65,36 +144,33 @@ export default function SignUpPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          role: formData.role,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          date_of_birth: formData.birthday,
+          role: invitePreview?.memberRole || formData.role,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          dateOfBirth: formData.birthday,
           email: formData.email,
           phone: formData.phone,
           password: formData.password,
+          ...(inviteCode ? { inviteCode } : {}),
           ...(formData.role === 'patient' && {
-            assistance_level: formData.assistance,
-            assistance_details: formData.assistance === 'limited' ? formData.assistanceDetails : null,
+            assistanceLevel:
+              formData.assistance === 'limited'
+                ? formData.assistanceDetails || 'limited_mobility'
+                : assistanceValueMap[formData.assistance] || formData.assistance,
           }),
         }),
       });
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !data.ok) {
         throw new Error(data.message || 'Failed to create account.');
       }
-
-      if (formData.role === 'patient') {
-        router.push('/patient/dashboard');
-      } else if (formData.role === 'caregiver') {
-        router.push('/caregiver/dashboard');
-      } else {
-        router.push('/family/dashboard');
-      }
+      router.push(data.redirectTo || '/');
+      router.refresh();
       
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
       setIsLoading(false);
     }
   };
@@ -198,6 +274,11 @@ export default function SignUpPage() {
 
         {/* The Wizard Form */}
         <form onSubmit={handleNextOrSubmit} className="w-full max-w-sm flex flex-col gap-5 min-h-[260px]">
+          {inviteMessage ? (
+            <div className="rounded-2xl border border-[#A3B18A] bg-[#F6F7F2] px-4 py-3 text-sm leading-6 text-[#384D4D]">
+              {inviteMessage}
+            </div>
+          ) : null}
           
           {/* --- STEP 1: ROLE SELECTION --- */}
           {step === 1 && (
@@ -206,11 +287,24 @@ export default function SignUpPage() {
                 <h2 className="text-lg font-bold text-[#3F6F50] tracking-wide mb-1">LET&apos;S GET STARTED!</h2>
                 <p className="text-base font-semibold text-[#1F2924]">Who will use this account?</p>
               </div>
-              <div className="flex flex-col gap-4 mt-2 px-4">
-                <CustomRadio label="Elderly User" selected={formData.role === 'patient'} onClick={() => handleRoleSelect('patient')} />
-                <CustomRadio label="Caregiver" selected={formData.role === 'caregiver'} onClick={() => handleRoleSelect('caregiver')} />
-                <CustomRadio label="Family Member" selected={formData.role === 'family_member'} onClick={() => handleRoleSelect('family_member')} />
-              </div>
+              {invitePreview ? (
+                <div className="flex flex-col gap-4 mt-2 px-4">
+                  <CustomRadio
+                    label={invitePreview.memberRole === 'family_member' ? 'Family Member' : 'Caregiver'}
+                    selected
+                    onClick={() => undefined}
+                  />
+                  <p className="text-sm leading-6 text-[#4A5D52]">
+                    This invite only works with a {invitePreview.memberRole === 'family_member' ? 'family member' : 'caregiver'} account.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4 mt-2 px-4">
+                  <CustomRadio label="Patient" selected={formData.role === 'patient'} onClick={() => handleRoleSelect('patient')} />
+                  <CustomRadio label="Caregiver" selected={formData.role === 'caregiver'} onClick={() => handleRoleSelect('caregiver')} />
+                  <CustomRadio label="Family Member" selected={formData.role === 'family_member'} onClick={() => handleRoleSelect('family_member')} />
+                </div>
+              )}
             </div>
           )}
 
@@ -413,7 +507,7 @@ export default function SignUpPage() {
           {/* Formatted to match the Sign In page exactly */}
           <p className="text-sm font-medium text-white/90">
             Already have an account?{' '}
-            <Link href="/sign-in">
+            <Link href={inviteCode ? `/sign-in?code=${inviteCode}` : "/sign-in"}>
               <span className="font-bold text-[#1A231D] underline decoration-2 underline-offset-2 hover:text-black transition drop-shadow-sm">
                 Log in
               </span>

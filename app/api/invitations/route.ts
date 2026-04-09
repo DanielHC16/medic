@@ -4,7 +4,11 @@ import {
   getInvitationPreviewByCode,
   listInvitationsForPatient,
 } from "@/lib/db/medic-data";
-import type { InviteApprovalMode, RoleSlug } from "@/lib/medic-types";
+import type {
+  InviteApprovalMode,
+  RoleSlug,
+  ShareableInvitation,
+} from "@/lib/medic-types";
 import { assertRole } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -75,7 +79,7 @@ export async function POST(request: Request) {
     });
 
     return Response.json({
-      invitation,
+      invitation: invitation satisfies ShareableInvitation,
       ok: true,
     });
   } catch (error) {

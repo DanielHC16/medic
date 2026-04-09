@@ -120,9 +120,9 @@ export default function Home() {
           </h2>
           <div className="mt-5 grid gap-4">
             {[
-              "patient.demo@medic.local",
-              "caregiver.demo@medic.local",
-              "family.demo@medic.local",
+              "walter.white@medic.local",
+              "hector.salamanca@medic.local",
+              "saul.goodman@medic.local",
             ].map((account) => (
               <div
                 key={account}
@@ -140,6 +140,8 @@ export default function Home() {
           </div>
 
           <div className="mt-6 rounded-[1.75rem] border border-dashed border-[var(--color-border)] bg-[rgba(163,177,138,0.12)] p-5 text-sm leading-6 text-[var(--color-muted-foreground)]">
+            Matching caregiver and family-member accounts are also seeded after reset.
+            <br />
             The working schema and build order live in{" "}
             <code className="text-[var(--color-primary-strong)]">docs/ERD.md</code> and{" "}
             <code className="text-[var(--color-primary-strong)]">

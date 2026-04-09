@@ -77,6 +77,38 @@ export function TestingWorkbench({
     }
   }
 
+  async function handleResetDatabase() {
+    setPendingKind("reset");
+    setFeedback(null);
+
+    try {
+      const response = await fetch("/api/db/reset", {
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        message?: string;
+        ok: boolean;
+      };
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.message || "Unable to reset testing data.");
+      }
+
+      setFeedback({
+        message: result.message || "Testing data was reset successfully.",
+        tone: "success",
+      });
+      router.refresh();
+    } catch (error) {
+      setFeedback({
+        message: error instanceof Error ? error.message : "Unable to reset testing data.",
+        tone: "error",
+      });
+    } finally {
+      setPendingKind(null);
+    }
+  }
+
   async function handleCreateUser(formData: FormData) {
     await submitTestingAction("user", {
       assistanceLevel: formData.get("assistanceLevel"),
@@ -164,6 +196,16 @@ export function TestingWorkbench({
           test invitations, medications, routines, and appointments without needing
           to go through the signed-in app flow first.
         </p>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={handleResetDatabase}
+            disabled={pendingKind === "reset"}
+            className="medic-button medic-button-primary"
+          >
+            {pendingKind === "reset" ? "Resetting test data..." : "Reset seeded test data"}
+          </button>
+        </div>
       </div>
 
       {feedback ? (

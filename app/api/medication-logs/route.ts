@@ -5,6 +5,12 @@ import type { MedicationLogStatus } from "@/lib/medic-types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function getMedicationLogStatus(value: unknown): MedicationLogStatus {
+  return value === "missed" || value === "skipped" || value === "queued_offline"
+    ? value
+    : "taken";
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
@@ -18,6 +24,7 @@ export async function POST(request: Request) {
       takenAt?: string | null;
     };
     const scope = await requirePatientScope(body.patientUserId);
+    const status = getMedicationLogStatus(body.status);
 
     if (!scope.patientUserId || !canManagePatientData(scope.user.role)) {
       return Response.json(
@@ -37,8 +44,9 @@ export async function POST(request: Request) {
       recordedByUserId: scope.user.userId,
       scheduleId: body.scheduleId,
       scheduledFor: body.scheduledFor,
-      status: body.status ?? "taken",
-      takenAt: body.takenAt ?? new Date().toISOString(),
+      status,
+      takenAt:
+        status === "taken" ? body.takenAt ?? new Date().toISOString() : body.takenAt ?? null,
     });
 
     return Response.json({

@@ -216,13 +216,20 @@ Then open:
 
 ## Demo Accounts
 
-After bootstrap, the seeded local/test accounts are:
+After bootstrap or reset, the seeded local/test accounts use a Breaking Bad-themed
+dataset with three patient care circles:
 
-- `patient.demo@medic.local`
-- `caregiver.demo@medic.local`
-- `family.demo@medic.local`
+- Patient: `walter.white@medic.local`
+- Caregiver: `jesse.pinkman@medic.local`
+- Family member: `skyler.white@medic.local`
+- Patient: `hector.salamanca@medic.local`
+- Caregiver: `gus.fring@medic.local`
+- Family member: `tuco.salamanca@medic.local`
+- Patient: `saul.goodman@medic.local`
+- Caregiver: `kim.wexler@medic.local`
+- Family member: `chuck.mcgill@medic.local`
 
-Default seeded password:
+Default seeded password for every seeded account:
 
 - `DemoPass123!`
 
@@ -286,4 +293,3 @@ From the current build and route setup, this project should redeploy cleanly. Th
 
 - ERD: [docs/ERD.md](docs/ERD.md)
 - Build order / roadmap: [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)
-

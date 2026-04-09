@@ -4,6 +4,7 @@ import {
   listAppointmentsForPatient,
   listMedicationsForPatient,
 } from "@/lib/db/medic-data";
+import { formatDateTime, formatDayList, formatTimeList } from "@/lib/display";
 import { requireRole } from "@/lib/auth/dal";
 
 export default async function PatientSchedulePage() {
@@ -22,6 +23,7 @@ export default async function PatientSchedulePage() {
       links={[
         { href: "/patient/dashboard", label: "Home" },
         { href: "/patient/medications", label: "Medications" },
+        { href: "/patient/health-info", label: "Health Info" },
         { href: "/wellness", label: "Wellness" },
       ]}
     >
@@ -29,21 +31,21 @@ export default async function PatientSchedulePage() {
         <ScheduleColumn
           title="Medication"
           items={medications.map((item) => ({
-            subtitle: `${item.scheduleTimes.join(", ")} · ${item.scheduleDays.join(", ")}`,
+            subtitle: `${formatTimeList(item.scheduleTimes)} / ${formatDayList(item.scheduleDays)}`,
             title: item.name,
           }))}
         />
         <ScheduleColumn
           title="Routines"
           items={activities.map((item) => ({
-            subtitle: `${item.frequencyType} · ${item.daysOfWeek.join(", ")}`,
+            subtitle: `${item.frequencyType} / ${formatDayList(item.daysOfWeek)}`,
             title: item.title,
           }))}
         />
         <ScheduleColumn
           title="Appointments"
           items={appointments.map((item) => ({
-            subtitle: item.appointmentAt,
+            subtitle: formatDateTime(item.appointmentAt),
             title: item.title,
           }))}
         />

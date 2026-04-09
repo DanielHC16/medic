@@ -1,11 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function SignInPage() {
+  return (
+    <Suspense fallback={<SignInPageShell inviteCode="" />}>
+      <SignInPageContent />
+    </Suspense>
+  );
+}
+
+function SignInPageContent() {
+  const searchParams = useSearchParams();
+  const inviteCode = searchParams.get('code')?.trim().toUpperCase() ?? '';
+
+  return <SignInPageShell inviteCode={inviteCode} />;
+}
+
+function SignInPageShell({ inviteCode }: { inviteCode: string }) {
   const router = useRouter();
 
   // 1. Form and UI State
@@ -35,21 +50,23 @@ export default function SignInPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email_or_phone: emailOrPhone, 
+          identifier: emailOrPhone,
           password: password,
+          ...(inviteCode ? { redirectTo: `/join?code=${inviteCode}` } : {}),
         }),
       });
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !data.ok) {
         throw new Error(data.message || 'Failed to sign in. Please check your credentials.');
       }
 
-      router.push('/patient/dashboard'); 
+      router.push(data.redirectTo || '/');
+      router.refresh();
       
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
     } finally {
       setIsLoading(false);
     }
@@ -102,6 +119,12 @@ export default function SignInPage() {
 
         {/* 6. The Sign In Form */}
         <form onSubmit={handleSignIn} className="w-full max-w-sm flex flex-col gap-6">
+          {inviteCode ? (
+            <div className="rounded-2xl border border-[#A3B18A] bg-[#F6F7F2] px-4 py-3 text-sm leading-6 text-[#384D4D]">
+              Invite detected for code <span className="font-semibold">{inviteCode}</span>.
+              Sign in to continue joining the patient.
+            </div>
+          ) : null}
           
           {/* Email or Phone Input */}
           <input
@@ -200,7 +223,7 @@ export default function SignInPage() {
           {/* Create Account Link */}
           <p className="text-sm font-medium text-white/90">
             Don&apos;t have an account?{' '}
-            <Link href="/sign-up">
+            <Link href={inviteCode ? `/sign-up?code=${inviteCode}` : "/sign-up"}>
               {/* Forced the darker color and clean underline directly onto a span */}
               <span className="font-bold text-[#1A231D] underline decoration-2 underline-offset-2 hover:text-black transition drop-shadow-sm">
                 Create one Now!

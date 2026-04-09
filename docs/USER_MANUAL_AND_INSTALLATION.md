@@ -428,9 +428,15 @@ This creates the working schema used by the project, including:
 
 After bootstrap, the following sample accounts are available:
 
-- `patient.demo@medic.local`
-- `caregiver.demo@medic.local`
-- `family.demo@medic.local`
+- `walter.white@medic.local`
+- `jesse.pinkman@medic.local`
+- `skyler.white@medic.local`
+- `hector.salamanca@medic.local`
+- `gus.fring@medic.local`
+- `tuco.salamanca@medic.local`
+- `saul.goodman@medic.local`
+- `kim.wexler@medic.local`
+- `chuck.mcgill@medic.local`
 
 Default password:
 
@@ -439,11 +445,10 @@ Default password:
 ## 8. Current System Notes
 
 - MEDIC already includes core PWA metadata through the web manifest.
-- Invite codes and invite links are working in the current build.
-- QR code generation and scanning are planned but not yet fully implemented in the current UI.
+- Invite codes, invite links, QR generation, and QR scanning are working in the current build.
 - The final PWA install flow and hardening are still part of the broader implementation roadmap.
 - Offline behavior currently exists as a limited sync/testing layer and is not yet the final full offline system.
-- Some planned sections such as Health Info, Alerts, Settings, Monitoring, and Updates are part of the product structure but are still in progress in the current codebase.
+- The patient, caregiver, and family sections now include the currently implemented Health Info, Alerts, Settings, Monitoring, Updates, and Profile screens, with more polish still planned.
 
 ## 9. Conclusion
 

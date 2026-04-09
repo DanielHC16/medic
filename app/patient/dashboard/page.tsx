@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
 import { getPatientDashboardData, listPatientConnections } from "@/lib/db/medic-data";
+import { formatDateTime, formatTimeList } from "@/lib/display";
 import { requireRole } from "@/lib/auth/dal";
 
 export default async function PatientDashboardPage() {
@@ -23,9 +24,10 @@ export default async function PatientDashboardPage() {
       links={[
         { href: "/patient/medications", label: "Medications" },
         { href: "/patient/schedule", label: "Schedule" },
+        { href: "/patient/health-info", label: "Health Info" },
         { href: "/patient/care-circle", label: "Care Circle" },
-        { href: "/wellness", label: "Wellness" },
-        { href: "/profile", label: "Profile" },
+        { href: "/patient/alerts", label: "Alerts" },
+        { href: "/patient/settings", label: "Settings" },
       ]}
     >
       <section className="grid gap-6 md:grid-cols-3">
@@ -49,7 +51,7 @@ export default async function PatientDashboardPage() {
       <section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
         <div className="rounded-[2rem] border border-black/5 bg-white/90 p-6 shadow-sm">
           <h2 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-            Active Medications
+            Active medications
           </h2>
           <div className="mt-4 grid gap-4">
             {dashboard.medications.map((item) => (
@@ -62,10 +64,10 @@ export default async function PatientDashboardPage() {
                 </p>
                 <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
                   {item.dosageValue}
-                  {item.dosageUnit ? ` ${item.dosageUnit}` : ""} · {item.form}
+                  {item.dosageUnit ? ` ${item.dosageUnit}` : ""} / {item.form}
                 </p>
                 <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
-                  {item.scheduleTimes.join(", ") || "No times yet"}
+                  {formatTimeList(item.scheduleTimes)}
                 </p>
               </article>
             ))}
@@ -75,7 +77,7 @@ export default async function PatientDashboardPage() {
         <div className="grid gap-6">
           <div className="rounded-[2rem] border border-black/5 bg-white/90 p-6 shadow-sm">
             <h2 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-              Upcoming Appointments
+              Upcoming appointments
             </h2>
             <div className="mt-4 grid gap-4">
               {dashboard.appointments.length === 0 ? (
@@ -92,10 +94,10 @@ export default async function PatientDashboardPage() {
                       {item.title}
                     </p>
                     <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
-                      {item.appointmentAt}
+                      {formatDateTime(item.appointmentAt)}
                     </p>
                     <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
-                      {item.providerName || "Provider pending"} ·{" "}
+                      {item.providerName || "Provider pending"} /{" "}
                       {item.location || "Location pending"}
                     </p>
                   </article>
@@ -107,7 +109,7 @@ export default async function PatientDashboardPage() {
           <div className="rounded-[2rem] border border-black/5 bg-white/90 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-                Care Circle Snapshot
+                Care circle snapshot
               </h2>
               <Link
                 href="/patient/care-circle"
@@ -131,7 +133,7 @@ export default async function PatientDashboardPage() {
                       {connection.relatedDisplayName}
                     </p>
                     <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
-                      {connection.memberRole} · {connection.relationshipStatus}
+                      {connection.memberRole} / {connection.relationshipStatus}
                     </p>
                   </article>
                 ))

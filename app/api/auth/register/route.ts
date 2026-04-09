@@ -2,7 +2,7 @@ import { getDefaultRouteForRole } from "@/lib/auth/dal";
 import { registerUser } from "@/lib/db/medic-data";
 import type { InviteApprovalMode, RoleSlug } from "@/lib/medic-types";
 import { createUserSession } from "@/lib/security/session";
-import { assertRole } from "@/lib/validation";
+import { assertRole, getOptionalString, getRequiredString } from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,14 +25,17 @@ export async function POST(request: Request) {
     const role = assertRole(body.role);
     const user = await registerUser({
       approvalMode: body.approvalMode,
-      assistanceLevel: body.assistanceLevel,
-      dateOfBirth: body.dateOfBirth,
-      email: body.email ?? "",
-      firstName: body.firstName ?? "",
-      inviteCode: body.inviteCode,
-      lastName: body.lastName ?? "",
-      password: body.password ?? "",
-      phone: body.phone,
+      assistanceLevel: getOptionalString(body.assistanceLevel) ?? undefined,
+      dateOfBirth:
+        role === "patient"
+          ? getRequiredString(body.dateOfBirth, "Date of birth")
+          : getOptionalString(body.dateOfBirth) ?? undefined,
+      email: getRequiredString(body.email, "Email"),
+      firstName: getRequiredString(body.firstName, "First name"),
+      inviteCode: getOptionalString(body.inviteCode) ?? undefined,
+      lastName: getRequiredString(body.lastName, "Last name"),
+      password: getRequiredString(body.password, "Password"),
+      phone: getRequiredString(body.phone, "Phone"),
       role,
     });
 

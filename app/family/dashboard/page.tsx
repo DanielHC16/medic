@@ -1,7 +1,8 @@
 import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
-import { JoinPatientPanel } from "@/components/care-circle-manager";
+import { CareAccessStatusPanel } from "@/components/care-access-status-panel";
+import { formatDateTime } from "@/lib/display";
 import { getCareMemberDashboardData } from "@/lib/db/medic-data";
 import { requireRole } from "@/lib/auth/dal";
 
@@ -31,23 +32,24 @@ export default async function FamilyDashboardPage({
       title="Family Dashboard"
       description="Stay informed with patient updates, appointment visibility, and a lighter monitoring view."
       links={[
+        { href: "/family/updates", label: "Updates" },
+        { href: "/family/profile", label: "Profile" },
         { href: "/join", label: "Join a patient" },
-        { href: "/profile", label: "Profile" },
       ]}
     >
       {dashboard.linkedPatients.length > 1 ? (
         <section className="rounded-[2rem] border border-black/5 bg-white/90 p-6 shadow-sm">
           <h2 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-            Patient Switcher
+            Patient switcher
           </h2>
           <div className="mt-4 flex flex-wrap gap-3">
             {dashboard.linkedPatients.map((patient) => (
               <Link
                 key={patient.relationshipId}
                 href={`/family/dashboard?patientId=${patient.patientUserId}`}
-                className="rounded-full border border-[var(--color-border)] px-4 py-2 text-sm font-medium text-[var(--foreground)]"
+                className="medic-button medic-button-soft text-sm"
               >
-                {patient.patientDisplayName} · {patient.relationshipStatus}
+                {patient.patientDisplayName} / {patient.relationshipStatus}
               </Link>
             ))}
           </div>
@@ -55,7 +57,10 @@ export default async function FamilyDashboardPage({
       ) : null}
 
       {!dashboard.selectedPatient ? (
-        <JoinPatientPanel role="family_member" />
+        <CareAccessStatusPanel
+          linkedPatients={dashboard.linkedPatients}
+          role="family_member"
+        />
       ) : (
         <div className="grid gap-6">
           <section className="grid gap-6 md:grid-cols-3">
@@ -76,7 +81,7 @@ export default async function FamilyDashboardPage({
           <section className="grid gap-6 lg:grid-cols-2">
             <div className="rounded-[2rem] border border-black/5 bg-white/90 p-6 shadow-sm">
               <h2 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-                Patient Updates
+                Patient updates
               </h2>
               <div className="mt-4 grid gap-4">
                 {dashboard.selectedPatient.medications.map((item) => (
@@ -109,7 +114,7 @@ export default async function FamilyDashboardPage({
                       {item.title}
                     </p>
                     <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
-                      {item.appointmentAt}
+                      {formatDateTime(item.appointmentAt)}
                     </p>
                   </article>
                 ))}

@@ -1,10 +1,12 @@
 import { AppShell } from "@/components/app-shell";
 import { WellnessManager } from "@/components/wellness-manager";
+import { canManagePatientData, requirePatientScope } from "@/lib/auth/dal";
 import {
+  getActivitySummary,
+  listActivityLogsForPatient,
   listActivityPlansForPatient,
   listAppointmentsForPatient,
 } from "@/lib/db/medic-data";
-import { canManagePatientData, requirePatientScope } from "@/lib/auth/dal";
 
 type WellnessPageProps = {
   searchParams: Promise<{
@@ -44,9 +46,11 @@ export default async function WellnessPage({ searchParams }: WellnessPageProps) 
     );
   }
 
-  const [activityPlans, appointments] = await Promise.all([
-    listActivityPlansForPatient(scope.patientUserId),
-    listAppointmentsForPatient(scope.patientUserId),
+  const [activityPlans, appointments, activityLogs, activitySummary] = await Promise.all([
+    listActivityPlansForPatient(scope.patientUserId, { includeInactive: true }),
+    listAppointmentsForPatient(scope.patientUserId, { includeCancelled: true }),
+    listActivityLogsForPatient(scope.patientUserId, 10),
+    getActivitySummary(scope.patientUserId),
   ]);
 
   return (
@@ -66,7 +70,9 @@ export default async function WellnessPage({ searchParams }: WellnessPageProps) 
       ]}
     >
       <WellnessManager
+        activityLogs={activityLogs}
         activityPlans={activityPlans}
+        activitySummary={activitySummary}
         appointments={appointments}
         canManage={canManagePatientData(scope.user.role)}
         patientUserId={scope.patientUserId}

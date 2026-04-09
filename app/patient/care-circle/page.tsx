@@ -17,7 +17,7 @@ export default async function PatientCareCirclePage() {
     <AppShell
       user={user}
       title="Care Circle"
-      description="Generate invite codes and links, approve pending requests, and review who can access the patient profile."
+      description="Generate invite codes, deep links, and QR shares, approve pending requests, and review who can access the patient profile."
       links={[
         { href: "/patient/dashboard", label: "Home" },
         { href: "/patient/medications", label: "Medications" },

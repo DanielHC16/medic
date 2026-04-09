@@ -14,6 +14,18 @@ export type MedicationLogStatus =
 
 export type ActivityCompletionStatus = "planned" | "done" | "missed";
 
+export type PreferredContactMethod = "app" | "email" | "sms";
+
+export type TimeFormatPreference = "12h" | "24h";
+
+export type UserPreferences = {
+  dailySummaryEnabled: boolean;
+  highContrastEnabled: boolean;
+  largeTextEnabled: boolean;
+  preferredContactMethod: PreferredContactMethod;
+  timeFormat: TimeFormatPreference;
+};
+
 export type SessionUser = {
   email: string;
   firstName: string;
@@ -26,6 +38,7 @@ export type AuthenticatedUser = SessionUser & {
   accountStatus: string;
   onboardingStatus: string;
   phone: string | null;
+  preferences: UserPreferences;
 };
 
 export type PatientProfile = {
@@ -59,6 +72,10 @@ export type CareInvitationPreview = {
   status: InviteStatus;
 };
 
+export type ShareableInvitation = CareInvitationPreview & {
+  invitePath: string;
+};
+
 export type MedicationRecord = {
   createdByDisplayName: string;
   dosageUnit: string | null;
@@ -71,10 +88,32 @@ export type MedicationRecord = {
   latestTakenAt: string | null;
   name: string;
   patientUserId: string;
-  scheduleId: string | null;
-  scheduleTimes: string[];
   scheduleDays: string[];
   scheduleFrequencyType: string | null;
+  scheduleId: string | null;
+  scheduleTimes: string[];
+};
+
+export type MedicationLogRecord = {
+  createdAt: string;
+  id: string;
+  medicationId: string;
+  medicationName: string;
+  notes: string | null;
+  recordedByDisplayName: string | null;
+  scheduledFor: string | null;
+  source: string;
+  status: MedicationLogStatus;
+  takenAt: string | null;
+};
+
+export type MedicationAdherenceSummary = {
+  activeMedications: number;
+  dueToday: number;
+  loggedToday: number;
+  missedToday: number;
+  skippedToday: number;
+  takenToday: number;
 };
 
 export type ActivityPlanRecord = {
@@ -85,8 +124,28 @@ export type ActivityPlanRecord = {
   id: string;
   instructions: string | null;
   isActive: boolean;
+  latestCompletedAt: string | null;
+  latestCompletionStatus: ActivityCompletionStatus | null;
   targetMinutes: number | null;
   title: string;
+};
+
+export type ActivityLogRecord = {
+  activityPlanId: string;
+  activityTitle: string;
+  completionStatus: ActivityCompletionStatus;
+  completedAt: string | null;
+  createdAt: string;
+  id: string;
+  notes: string | null;
+  recordedByDisplayName: string | null;
+  scheduledFor: string | null;
+};
+
+export type ActivitySummary = {
+  activePlans: number;
+  completedToday: number;
+  missedToday: number;
 };
 
 export type AppointmentRecord = {

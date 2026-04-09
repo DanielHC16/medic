@@ -3,7 +3,12 @@ import {
   createActivityPlan,
   listActivityPlansForPatient,
 } from "@/lib/db/medic-data";
-import { getOptionalString, getRequiredString, getStringArray } from "@/lib/validation";
+import {
+  getOptionalNumber,
+  getOptionalString,
+  getRequiredString,
+  getStringArray,
+} from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,8 +56,7 @@ export async function POST(request: Request) {
       frequencyType: getRequiredString(body.frequencyType, "Frequency"),
       instructions: getOptionalString(body.instructions),
       patientUserId: scope.patientUserId,
-      targetMinutes:
-        typeof body.targetMinutes === "number" ? body.targetMinutes : null,
+      targetMinutes: getOptionalNumber(body.targetMinutes),
       title: getRequiredString(body.title, "Title"),
     });
 
