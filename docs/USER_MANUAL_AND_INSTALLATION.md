@@ -38,7 +38,7 @@ Example flow:
 
 ### 3.2 Install as a PWA
 
-The user may install MEDIC to the device so it behaves more like an app.
+The user may install MEDIC to the deviTce so it behaves more like an app.
 
 When installed:
 
