@@ -14,6 +14,7 @@ export async function POST(request: Request) {
       assistanceLevel?: string;
       dateOfBirth?: string;
       email?: string;
+      emergencyNotes?: string;
       firstName?: string;
       inviteCode?: string;
       lastName?: string;
@@ -31,6 +32,8 @@ export async function POST(request: Request) {
           ? getRequiredString(body.dateOfBirth, "Date of birth")
           : getOptionalString(body.dateOfBirth) ?? undefined,
       email: getRequiredString(body.email, "Email"),
+      emergencyNotes:
+        role === "patient" ? getOptionalString(body.emergencyNotes) ?? undefined : undefined,
       firstName: getRequiredString(body.firstName, "First name"),
       inviteCode: getOptionalString(body.inviteCode) ?? undefined,
       lastName: getRequiredString(body.lastName, "Last name"),

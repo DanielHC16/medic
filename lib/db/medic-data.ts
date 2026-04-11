@@ -1712,6 +1712,7 @@ export async function registerUser(input: {
   assistanceLevel?: string;
   dateOfBirth?: string;
   email: string;
+  emergencyNotes?: string;
   firstName: string;
   inviteCode?: string;
   lastName: string;
@@ -1780,11 +1781,12 @@ export async function registerUser(input: {
          assistance_level,
          emergency_notes
        )
-       values ($1, $2, $3, null)`,
+       values ($1, $2, $3, $4)`,
       [
         userId,
         input.dateOfBirth ? input.dateOfBirth : null,
         input.assistanceLevel || "independent",
+        input.emergencyNotes?.trim() || null,
       ],
     );
   }

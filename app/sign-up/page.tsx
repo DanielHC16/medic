@@ -10,8 +10,7 @@ export default function SignUpPage() {
 
   // 1. Wizard Step State
   // 1: Role, 2: Info, 3: Contact, 4: Passwords
-  // 5: Elderly QA, 6: Family QA
-  // 7: Elderly QR, 8: Success
+  // 5: Patient health profile, 6: Optional invite details
   const [step, setStep] = useState(1);
 
   // 2. Form Data State
@@ -24,9 +23,10 @@ export default function SignUpPage() {
     phone: '',
     password: '',
     confirmPassword: '',
-    assistance: 'none',
+    assistance: 'independent',
     assistanceDetails: '',
-    activelyAssisting: null as boolean | null, // Added for Family QA
+    approvalMode: 'manual',
+    inviteCode: '',
   });
 
   // 3. UI State
@@ -52,17 +52,16 @@ export default function SignUpPage() {
   // 4. Navigation Handlers
   const handleBack = () => {
     setError(null);
-    if (step === 8) return; // No going back from success
-    if (step === 7) setStep(5); // QR back to Elderly QA
-    else if (step === 6) setStep(4); // Family QA back to Passwords
-    else if (step === 5) setStep(4); // Elderly QA back to Passwords
-    else if (step > 1) setStep((prev) => prev - 1);
-    else router.push('/');
+    if (step > 1) {
+      setStep((prev) => prev - 1);
+      return;
+    }
+
+    router.push('/');
   };
 
   // 5. Final Submission Logic
-  // Now returns a boolean indicating success instead of handling routing internally
-  const submitForm = async (): Promise<boolean> => {
+  const submitForm = async (): Promise<string> => {
     setIsLoading(true);
     try {
       const response = await fetch('/api/auth/register', {
@@ -72,35 +71,42 @@ export default function SignUpPage() {
         },
         body: JSON.stringify({
           role: formData.role,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          date_of_birth: formData.birthday,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          dateOfBirth: formData.role === 'patient' ? formData.birthday : undefined,
           email: formData.email,
           phone: formData.phone,
           password: formData.password,
           ...(formData.role === 'patient' && {
-            assistance_level: formData.assistance,
-            assistance_details: formData.assistance === 'limited' ? formData.assistanceDetails : null,
+            assistanceLevel: formData.assistance,
+            emergencyNotes:
+              formData.assistance === 'limited_mobility'
+                ? formData.assistanceDetails
+                : undefined,
           }),
           ...(formData.role !== 'patient' && {
-            actively_assisting: formData.activelyAssisting,
+            approvalMode: formData.approvalMode,
+            inviteCode: formData.inviteCode,
           }),
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json() as {
+        message?: string;
+        ok: boolean;
+        redirectTo?: string;
+      };
 
-      if (!response.ok) {
+      if (!response.ok || !data.ok || !data.redirectTo) {
         throw new Error(data.message || 'Failed to create account.');
       }
-      
+
+      return data.redirectTo;
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
+      return '';
+    } finally {
       setIsLoading(false);
-      return true;
-      
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
-      setIsLoading(false);
-      return false;
     }
   };
 
@@ -115,7 +121,12 @@ export default function SignUpPage() {
       return;
     }
     // Step 2: Basic Info
-    if (step === 2 && (!formData.firstName || !formData.lastName || !formData.birthday)) {
+    if (
+      step === 2 &&
+      (!formData.firstName ||
+        !formData.lastName ||
+        (formData.role === 'patient' && !formData.birthday))
+    ) {
       setError("Please fill out all fields to continue.");
       return;
     }
@@ -137,54 +148,35 @@ export default function SignUpPage() {
       
       // Branch logic based on Role
       if (formData.role === 'patient') {
-        setStep(5); // Go to Elderly QA
+        setStep(5); // Go to patient health details
       } else {
-        setStep(6); // Go to Family QA
+        setStep(6); // Go to optional invite details
       }
       return;
     }
 
-    // Step 5: Elderly QA Submission
+    // Step 5: Patient profile submission
     if (step === 5) {
-      if (formData.assistance === 'limited' && !formData.assistanceDetails) {
+      if (formData.assistance === 'limited_mobility' && !formData.assistanceDetails) {
         setError("Please specify your mobility limitations.");
         return;
       }
-      
-      // --- UI TESTING BYPASS ---
-      // Commented out the API call so you can test screens 5 -> 7 -> 8
-      // const isSuccess = await submitForm();
-      // if (isSuccess) setStep(7);
-      
-      setStep(7); // Bypass API and force it to proceed to QR Code
-      return;
-    }
 
-    // Step 6: Family QA Submission
-    if (step === 6) {
-      if (formData.activelyAssisting === null) {
-        setError("Please select whether you will be assisting.");
-        return;
+      const redirectTo = await submitForm();
+      if (redirectTo) {
+        router.push(redirectTo);
+        router.refresh();
       }
-      
-      // --- UI TESTING BYPASS ---
-      // Commented out the API call so you can test screens 6 -> 8
-      // const isSuccess = await submitForm();
-      // if (isSuccess) setStep(8);
-      
-      setStep(8); // Bypass API and force it to proceed directly to Success
       return;
     }
 
-    // Step 7: Elderly QR Next Button
-    if (step === 7) {
-      setStep(8); // Proceed to Success
-      return;
-    }
-
-    // Step 8: Success State -> Sign In Route
-    if (step === 8) {
-      router.push('/sign-in');
+    // Step 6: Caregiver/family invite details and submission
+    if (step === 6) {
+      const redirectTo = await submitForm();
+      if (redirectTo) {
+        router.push(redirectTo);
+        router.refresh();
+      }
       return;
     }
 
@@ -197,8 +189,7 @@ export default function SignUpPage() {
   // Determine Button Text dynamically
   let buttonText = 'NEXT';
   if (isLoading) buttonText = 'PROCESSING...';
-  else if (step === 5) buttonText = 'SUBMIT';
-  else if (step === 8) buttonText = 'SIGN IN';
+  else if (step === 5 || step === 6) buttonText = 'CREATE ACCOUNT';
 
   return (
     <main className="flex min-h-screen flex-col bg-[#EFF3F0] overflow-hidden relative">
@@ -219,15 +210,13 @@ export default function SignUpPage() {
 
       {/* Top Navigation Bar */}
       <header className="p-6 relative z-10 flex items-center justify-between min-h-[88px]">
-        {step !== 8 && (
-          <button 
-            onClick={handleBack}
-            disabled={isLoading}
-            className="inline-flex items-center justify-center px-4 py-2 bg-[#3F6F50] text-white text-sm font-normal rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.2)] hover:bg-[#345c43] transition disabled:opacity-50"
-          >
-            BACK
-          </button>
-        )}
+        <button 
+          onClick={handleBack}
+          disabled={isLoading}
+          className="inline-flex items-center justify-center px-4 py-2 bg-[#3F6F50] text-white text-sm font-normal rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.2)] hover:bg-[#345c43] transition disabled:opacity-50"
+        >
+          BACK
+        </button>
       </header>
 
       {/* Main Content Area */}
@@ -294,17 +283,19 @@ export default function SignUpPage() {
                   className="w-full h-[60px] px-6 text-base bg-white text-[#3F6F50] border border-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] placeholder:text-[#CBD7D0] focus:ring-2 focus:ring-[#3F6F50] focus:border-[#3F6F50] transition"
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-[#4A5D52] ml-4">When is your Birthday?</label>
-                <input
-                  type="date"
-                  name="birthday"
-                  value={formData.birthday}
-                  onChange={handleChange}
-                  required
-                  className="w-full h-[60px] px-6 text-base bg-white text-[#3F6F50] border border-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] placeholder:text-[#CBD7D0] focus:ring-2 focus:ring-[#3F6F50] focus:border-[#3F6F50] transition"
-                />
-              </div>
+              {formData.role === 'patient' && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-[#4A5D52] ml-4">When is your Birthday?</label>
+                  <input
+                    type="date"
+                    name="birthday"
+                    value={formData.birthday}
+                    onChange={handleChange}
+                    required
+                    className="w-full h-[60px] px-6 text-base bg-white text-[#3F6F50] border border-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] placeholder:text-[#CBD7D0] focus:ring-2 focus:ring-[#3F6F50] focus:border-[#3F6F50] transition"
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -388,7 +379,7 @@ export default function SignUpPage() {
             </div>
           )}
 
-          {/* --- STEP 5: ELDERLY QA --- */}
+          {/* --- STEP 5: PATIENT HEALTH DETAILS --- */}
           {step === 5 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-300 flex flex-col gap-6">
               <div className="text-center px-4">
@@ -397,12 +388,12 @@ export default function SignUpPage() {
                 </h2>
               </div>
               <div className="flex flex-col gap-4 px-2">
-                <CustomRadio label="No assistance needed" selected={formData.assistance === 'none'} onClick={() => handleAssistanceSelect('none')} />
-                <CustomRadio label="Needs help walking" selected={formData.assistance === 'walking'} onClick={() => handleAssistanceSelect('walking')} />
-                <CustomRadio label="Needs caregiver assistance" selected={formData.assistance === 'caregiver'} onClick={() => handleAssistanceSelect('caregiver')} />
+                <CustomRadio label="No assistance needed" selected={formData.assistance === 'independent'} onClick={() => handleAssistanceSelect('independent')} />
+                <CustomRadio label="Needs help walking" selected={formData.assistance === 'minimal_assistance'} onClick={() => handleAssistanceSelect('minimal_assistance')} />
+                <CustomRadio label="Needs caregiver assistance" selected={formData.assistance === 'caregiver_assistance'} onClick={() => handleAssistanceSelect('caregiver_assistance')} />
                 <div className="flex flex-col gap-2">
-                  <CustomRadio label="Limited mobility (please specify)" selected={formData.assistance === 'limited'} onClick={() => handleAssistanceSelect('limited')} />
-                  {formData.assistance === 'limited' && (
+                  <CustomRadio label="Limited mobility (please specify)" selected={formData.assistance === 'limited_mobility'} onClick={() => handleAssistanceSelect('limited_mobility')} />
+                  {formData.assistance === 'limited_mobility' && (
                     <input
                       type="text"
                       name="assistanceDetails"
@@ -417,55 +408,44 @@ export default function SignUpPage() {
             </div>
           )}
 
-          {/* --- STEP 6: FAMILY QA --- */}
+          {/* --- STEP 6: OPTIONAL INVITE DETAILS --- */}
           {step === 6 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-300 flex flex-col gap-6">
               <div className="text-center px-4">
                 <h2 className="text-[17px] font-bold text-[#1F2924] leading-snug">
-                  Will you be actively assisting the elderly user?
+                  Do you already have an invite code?
                 </h2>
+                <p className="mt-2 text-sm text-[#4A5D52]">
+                  You can create your account now and link it to a patient immediately if you already have a code.
+                </p>
               </div>
-              <div className="flex flex-col gap-4 px-4 mt-2">
-                <CustomRadio label="Yes" selected={formData.activelyAssisting === true} onClick={() => setFormData(prev => ({...prev, activelyAssisting: true}))} />
-                <CustomRadio label="No" selected={formData.activelyAssisting === false} onClick={() => setFormData(prev => ({...prev, activelyAssisting: false}))} />
+              <div className="flex flex-col gap-5 px-4 mt-2">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-[#4A5D52] ml-4">Invite Code (Optional)</label>
+                  <input
+                    type="text"
+                    name="inviteCode"
+                    placeholder="CARE123"
+                    value={formData.inviteCode}
+                    onChange={handleChange}
+                    className="w-full h-[60px] px-6 text-base uppercase bg-white text-[#3F6F50] border border-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] placeholder:text-[#CBD7D0] focus:ring-2 focus:ring-[#3F6F50] focus:border-[#3F6F50] transition"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-[#4A5D52] ml-4">Approval Handling</label>
+                  <select
+                    name="approvalMode"
+                    value={formData.approvalMode}
+                    onChange={(event) =>
+                      setFormData((prev) => ({ ...prev, approvalMode: event.target.value }))
+                    }
+                    className="w-full h-[60px] px-6 text-base bg-white text-[#3F6F50] border border-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] focus:ring-2 focus:ring-[#3F6F50] focus:border-[#3F6F50] transition"
+                  >
+                    <option value="manual">Request approval</option>
+                    <option value="auto">Auto-approve if allowed</option>
+                  </select>
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* --- STEP 7: ELDERLY QR CODE --- */}
-          {step === 7 && (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-300 flex flex-col items-center gap-4">
-              <p className="text-sm font-medium text-[#4A5D52]">Invite:</p>
-              
-              <div className="w-48 h-48 bg-white border-[6px] border-[#384D4D] rounded-xl flex items-center justify-center p-3 shadow-md relative overflow-hidden">
-                {/* Fallback pattern simulating a QR Code */}
-                <svg viewBox="0 0 100 100" className="w-full h-full text-[#1F2924]">
-                   <rect width="30" height="30" x="5" y="5" fill="none" stroke="currentColor" strokeWidth="6"/>
-                   <rect width="10" height="10" x="15" y="15" fill="currentColor"/>
-                   <rect width="30" height="30" x="65" y="5" fill="none" stroke="currentColor" strokeWidth="6"/>
-                   <rect width="10" height="10" x="75" y="15" fill="currentColor"/>
-                   <rect width="30" height="30" x="5" y="65" fill="none" stroke="currentColor" strokeWidth="6"/>
-                   <rect width="10" height="10" x="15" y="75" fill="currentColor"/>
-                   <rect width="15" height="15" x="45" y="15" fill="currentColor"/>
-                   <rect width="15" height="15" x="15" y="45" fill="currentColor"/>
-                   <rect width="15" height="15" x="70" y="45" fill="currentColor"/>
-                   <rect width="10" height="30" x="45" y="45" fill="currentColor"/>
-                   <rect width="30" height="15" x="55" y="75" fill="currentColor"/>
-                </svg>
-              </div>
-
-              <div className="mt-2 bg-[#384D4D] text-white text-2xl font-bold tracking-[0.2em] py-3 px-10 rounded-xl shadow-md">
-                12345
-              </div>
-            </div>
-          )}
-
-          {/* --- STEP 8: SUCCESS PROMPT --- */}
-          {step === 8 && (
-            <div className="animate-in fade-in zoom-in-95 duration-500 flex flex-col items-center justify-center mt-6">
-              <h2 className="text-[26px] font-bold text-[#384D4D] leading-snug text-center">
-                Account created<br/>successfully!
-              </h2>
             </div>
           )}
 
