@@ -224,10 +224,10 @@ export default async function PatientDashboardPage() {
         <Link href="/patient/schedule" className="p-2">
           <ClockIcon className="w-[28px] h-[28px] text-[#C0C8C3] hover:text-[#568164] transition" />
         </Link>
-        <Link href="/patient/health-info" className="p-2">
+        <Link href="/wellness" className="p-2">
           <HeartIcon className="w-[28px] h-[28px] text-[#C0C8C3] hover:text-[#568164] transition" />
         </Link>
-        <Link href="/patient/settings" className="p-2">
+        <Link href="/profile" className="p-2">
           <UserOutlineIcon className="w-[28px] h-[28px] text-[#C0C8C3] hover:text-[#568164] transition" />
         </Link>
       </nav>

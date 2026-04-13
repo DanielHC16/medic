@@ -1,5 +1,3 @@
-import { AppShell } from "@/components/app-shell";
-import { WellnessManager } from "@/components/wellness-manager";
 import { canManagePatientData, requirePatientScope } from "@/lib/auth/dal";
 import {
   getActivitySummary,
@@ -7,6 +5,8 @@ import {
   listActivityPlansForPatient,
   listAppointmentsForPatient,
 } from "@/lib/db/medic-data";
+import WellnessUI from "./WellnessUI";
+import Link from "next/link";
 
 type WellnessPageProps = {
   searchParams: Promise<{
@@ -17,35 +17,26 @@ type WellnessPageProps = {
 export default async function WellnessPage({ searchParams }: WellnessPageProps) {
   const resolvedSearchParams = await searchParams;
   const scope = await requirePatientScope(resolvedSearchParams.patientId ?? null);
-  const dashboardHref =
-    scope.user.role === "patient"
-      ? "/patient/dashboard"
-      : `/${scope.user.role === "caregiver" ? "caregiver" : "family"}/dashboard${
-          scope.patientUserId ? `?patientId=${scope.patientUserId}` : ""
-        }`;
 
+  // If no patient is linked, show a simple fallback screen
   if (!scope.patientUserId) {
     return (
-      <AppShell
-        user={scope.user}
-        title="Wellness"
-        description="Connect to a patient first to manage or review routines and appointments."
-        links={[
-          {
-            href: scope.user.role === "caregiver" ? "/caregiver/dashboard" : "/family/dashboard",
-            label: "Back to dashboard",
-          },
-        ]}
-      >
-        <section className="rounded-[2rem] border border-black/5 bg-white/90 p-6 shadow-sm">
-          <p className="text-base text-[var(--color-muted-foreground)]">
-            No linked patient is available yet.
-          </p>
-        </section>
-      </AppShell>
+      <main className="min-h-screen bg-[#EFF3F1] p-5 pt-12 flex flex-col items-center justify-center font-sans">
+        <div className="rounded-[24px] bg-[#F1F3F2] p-8 shadow-md text-center border border-[#D9E0DC]">
+          <h2 className="text-[20px] font-bold text-[#1A231D] mb-2">No Patient Linked</h2>
+          <p className="text-[14px] text-[#73847B] mb-6">Connect to a patient first to manage wellness routines.</p>
+          <Link 
+            href={scope.user.role === "caregiver" ? "/caregiver/dashboard" : "/family/dashboard"}
+            className="rounded-[12px] bg-[#4D6A56] px-6 py-3 text-[12px] font-bold tracking-widest text-white shadow-lg uppercase"
+          >
+            Back to Dashboard
+          </Link>
+        </div>
+      </main>
     );
   }
 
+  // Fetch all existing data
   const [activityPlans, appointments, activityLogs, activitySummary] = await Promise.all([
     listActivityPlansForPatient(scope.patientUserId, { includeInactive: true }),
     listAppointmentsForPatient(scope.patientUserId, { includeCancelled: true }),
@@ -54,29 +45,12 @@ export default async function WellnessPage({ searchParams }: WellnessPageProps) 
   ]);
 
   return (
-    <AppShell
-      user={scope.user}
-      title="Wellness and Routines"
-      description="Create or review activity routines and appointments linked to the current patient."
-      links={[
-        {
-          href: dashboardHref,
-          label: "Dashboard",
-        },
-        {
-          href: scope.user.role === "patient" ? "/patient/schedule" : "/join",
-          label: scope.user.role === "patient" ? "Schedule" : "Join another patient",
-        },
-      ]}
-    >
-      <WellnessManager
-        activityLogs={activityLogs}
-        activityPlans={activityPlans}
-        activitySummary={activitySummary}
-        appointments={appointments}
-        canManage={canManagePatientData(scope.user.role)}
-        patientUserId={scope.patientUserId}
-      />
-    </AppShell>
+    <WellnessUI 
+      activityPlans={activityPlans}
+      appointments={appointments}
+      activityLogs={activityLogs}
+      activitySummary={activitySummary}
+      canManage={canManagePatientData(scope.user.role)}
+    />
   );
 }
