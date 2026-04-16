@@ -26,9 +26,6 @@ export default async function FamilyDashboardPage({
     return null;
   }
 
-  // Define active route
-  const currentPath = "/family/dashboard";
-
   return (
     <div className="min-h-screen bg-[#Eef1f4] pb-32 font-sans">
       <main className="px-6 pt-10">
@@ -128,31 +125,31 @@ export default async function FamilyDashboardPage({
         <NavIcon 
           href="/family/dashboard" 
           icon={Home} 
-          isActive={currentPath === "/family/dashboard"} 
+          isActive={true} 
         />
         
         <NavIcon 
           href="/family/updates" 
           icon={BellRing} 
-          isActive={currentPath === "/family/updates"} 
+          isActive={false} 
         />
 
         <NavIcon 
           href="/join" 
           icon={UserPlus} 
-          isActive={currentPath === "/join"} 
+          isActive={false} 
         />
 
         <NavIcon 
           href="/wellness" 
           icon={Heart} 
-          isActive={currentPath === "/wellness"} 
+          isActive={false} 
         />
 
         <NavIcon 
           href="/family/profile" 
           icon={UserCircle} 
-          isActive={currentPath === "/family/profile"} 
+          isActive={false} 
         />
       </nav>
     </div>
