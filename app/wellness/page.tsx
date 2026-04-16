@@ -1,3 +1,7 @@
+import Link from "next/link";
+import { Home, Activity, UserPlus, Heart, User } from "lucide-react";
+
+import { WellnessManager } from "@/components/wellness-manager";
 import { canManagePatientData, requirePatientScope } from "@/lib/auth/dal";
 import {
   getActivitySummary,
@@ -5,8 +9,6 @@ import {
   listActivityPlansForPatient,
   listAppointmentsForPatient,
 } from "@/lib/db/medic-data";
-import WellnessUI from "./WellnessUI";
-import Link from "next/link";
 
 type WellnessPageProps = {
   searchParams: Promise<{
@@ -17,40 +19,125 @@ type WellnessPageProps = {
 export default async function WellnessPage({ searchParams }: WellnessPageProps) {
   const resolvedSearchParams = await searchParams;
   const scope = await requirePatientScope(resolvedSearchParams.patientId ?? null);
+  
+  const userRole = scope.user.role;
+  const dashboardHref =
+    userRole === "patient"
+      ? "/patient/dashboard"
+      : `/${userRole === "caregiver" ? "caregiver" : "family"}/dashboard${
+          scope.patientUserId ? `?patientId=${scope.patientUserId}` : ""
+        }`;
 
-  // If no patient is linked, show a simple fallback screen
-  if (!scope.patientUserId) {
-    return (
-      <main className="min-h-screen bg-[#EFF3F1] p-5 pt-12 flex flex-col items-center justify-center font-sans">
-        <div className="rounded-[24px] bg-[#F1F3F2] p-8 shadow-md text-center border border-[#D9E0DC]">
-          <h2 className="text-[20px] font-bold text-[#1A231D] mb-2">No Patient Linked</h2>
-          <p className="text-[14px] text-[#73847B] mb-6">Connect to a patient first to manage wellness routines.</p>
-          <Link 
-            href={scope.user.role === "caregiver" ? "/caregiver/dashboard" : "/family/dashboard"}
-            className="rounded-[12px] bg-[#4D6A56] px-6 py-3 text-[12px] font-bold tracking-widest text-white shadow-lg uppercase"
-          >
-            Back to Dashboard
-          </Link>
-        </div>
-      </main>
-    );
-  }
-
-  // Fetch all existing data
-  const [activityPlans, appointments, activityLogs, activitySummary] = await Promise.all([
-    listActivityPlansForPatient(scope.patientUserId, { includeInactive: true }),
-    listAppointmentsForPatient(scope.patientUserId, { includeCancelled: true }),
-    listActivityLogsForPatient(scope.patientUserId, 10),
-    getActivitySummary(scope.patientUserId),
-  ]);
+  const [activityPlans, appointments, activityLogs, activitySummary] = scope.patientUserId 
+    ? await Promise.all([
+        listActivityPlansForPatient(scope.patientUserId, { includeInactive: true }),
+        listAppointmentsForPatient(scope.patientUserId, { includeCancelled: true }),
+        listActivityLogsForPatient(scope.patientUserId, 10),
+        getActivitySummary(scope.patientUserId),
+      ])
+    : [null, null, [], null];
 
   return (
-    <WellnessUI 
-      activityPlans={activityPlans}
-      appointments={appointments}
-      activityLogs={activityLogs}
-      activitySummary={activitySummary}
-      canManage={canManagePatientData(scope.user.role)}
-    />
+    <div className="min-h-screen bg-[#Eef1f4] pb-32 font-sans">
+      <main className="px-6 pt-10">
+        {/* --- WELLNESS HEADER --- */}
+        <section className="mb-6 rounded-[2.5rem] bg-white p-8 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#5C8B6B]">
+            Medic
+          </p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
+            Wellness
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-gray-500">
+            Create or review activity routines and appointments linked to the current patient.
+          </p>
+        </section>
+
+        {/* --- WELLNESS CONTENT --- */}
+        {!scope.patientUserId ? (
+          <section className="rounded-[2rem] border border-black/5 bg-white/90 p-8 shadow-sm text-center">
+            <p className="text-gray-500">No linked patient is available yet.</p>
+            <Link 
+              href="/join" 
+              className="mt-4 inline-block text-sm font-bold text-[#5C8B6B] underline"
+            >
+              Connect to a patient
+            </Link>
+          </section>
+        ) : (
+          <div className="rounded-[2.5rem] bg-white/40 p-2">
+            <WellnessManager
+              activityLogs={activityLogs}
+              activityPlans={activityPlans || []}
+              activitySummary={activitySummary!}
+              appointments={appointments || []}
+              canManage={canManagePatientData(userRole)}
+              patientUserId={scope.patientUserId}
+            />
+          </div>
+        )}
+      </main>
+
+      {/* --- BOTTOM NAVIGATION BAR --- */}
+      <nav className="fixed bottom-0 left-0 right-0 z-[100] flex items-center justify-around rounded-t-[2.5rem] bg-white px-4 py-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t border-gray-100">
+        {/* Home */}
+        <NavIcon 
+          href={userRole === "caregiver" ? "/caregiver/dashboard" : "/family/dashboard"} 
+          icon={Home} 
+          isActive={false} 
+        />
+        
+        {/* Monitoring */}
+        <NavIcon 
+          href="/caregiver/monitoring" 
+          icon={Activity} 
+          isActive={false} 
+        />
+
+        {/* Join */}
+        <NavIcon 
+          href="/join" 
+          icon={UserPlus} 
+          isActive={false} 
+        />
+
+        {/* Wellness - ACTIVE */}
+        <NavIcon 
+          href="/wellness" 
+          icon={Heart} 
+          isActive={true} 
+        />
+
+        {/* Profile */}
+        <NavIcon 
+          href={`/${userRole}/profile`} 
+          icon={User} 
+          isActive={false} 
+        />
+      </nav>
+    </div>
+  );
+}
+
+/**
+ * Shared NavIcon Component 
+ */
+function NavIcon({ href, icon: Icon, isActive }: { href: string; icon: any; isActive: boolean }) {
+  return (
+    <Link
+      href={href}
+      className={`relative flex h-14 w-14 items-center justify-center transition-all duration-300 ${
+        isActive 
+          ? "rounded-full bg-[#5C8B6B] shadow-lg scale-110" 
+          : "rounded-full bg-transparent hover:bg-gray-50"
+      }`}
+    >
+      <Icon 
+        size={24}
+        color={isActive ? "#FFFFFF" : "#5C8B6B"} 
+        strokeWidth={isActive ? 2.5 : 2}
+        className="block"
+      />
+    </Link>
   );
 }
