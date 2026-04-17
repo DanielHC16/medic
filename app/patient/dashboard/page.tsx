@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 "use client";
 
 import { useEffect, useState } from "react";
@@ -10,27 +9,7 @@ import {
   CalendarDays, Stethoscope, MapPin, AlarmClock, Pill, WandSparkles,
 } from "lucide-react";
 
-// Helpers 
-=======
-import { requireRole } from "@/lib/auth/dal";
-import {
-  getActivitySummary,
-  getMedicationAdherenceSummary,
-  getPatientDashboardData,
-  listMedicationLogsForPatient,
-} from "@/lib/db/medic-data";
-
-import PatientDashboardClient from "./PatientDashboardClient";
-
-export default async function PatientDashboardPage() {
-  const user = await requireRole("patient");
-  const [dashboard, medicationLogs, activitySummary, medicationSummary] = await Promise.all([
-    getPatientDashboardData(user.userId),
-    listMedicationLogsForPatient(user.userId, 20),
-    getActivitySummary(user.userId),
-    getMedicationAdherenceSummary(user.userId),
-  ]);
->>>>>>> c0d4d6c8dc033ab7ca696114d2b1b425bac15b38
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function statusPillClass(status: string): string {
   switch (status.toLowerCase()) {
@@ -40,10 +19,9 @@ function statusPillClass(status: string): string {
     case "pending":    return "pd-status-pending";
     default:           return "pd-status-default";
   }
-<<<<<<< HEAD
 }
 
-// Medication Modal
+//Medication Modal
 
 function MedicationModal({
   med, summary, onClose,
@@ -67,7 +45,7 @@ function MedicationModal({
       setLoadingMissed(true);
       try {
         const res = await fetch("/api/medication-logs");
-        const json = res.ok ? await res.json() : { logs: [] };
+        const json = await res.json();
         setMissedLogs((json?.logs ?? []).filter((l: { status: string }) => l.status === "missed"));
       } catch { setMissedLogs([]); }
       finally { setLoadingMissed(false); }
@@ -76,7 +54,8 @@ function MedicationModal({
   };
 
   return (
-    <div className="pd-modal-sheet" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="pd-modal-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-end mb-2">
           <button onClick={onClose} className="w-8 h-8 rounded-full border border-[#2F3E34] flex items-center justify-center hover:bg-[#E5E7EB] transition" aria-label="Close">
             <X className="w-4 h-4" />
@@ -197,11 +176,12 @@ function MedicationModal({
         {!showMissed && <div className="mb-6" />}
         <p className="text-[13px] font-bold mb-2">Notes:</p>
         <div className="pd-notes-box">{med.instructions || "No notes available"}</div>
+      </div>
     </div>
   );
 }
 
-// Appointment Modal
+// ─── Appointment Modal ────────────────────────────────────────────────────────
 
 function AppointmentModal({
   appt, onClose,
@@ -214,7 +194,8 @@ function AppointmentModal({
   const timeLabel = dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Manila" });
 
   return (
-    <div className="pd-modal-sheet">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="pd-modal-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
           <span className={`text-[13px] font-bold px-3 py-1 rounded-full ${statusPillClass(appt.status)}`}>
             {appt.status.charAt(0).toUpperCase() + appt.status.slice(1)}
@@ -246,11 +227,12 @@ function AppointmentModal({
 
         <p className="text-[13px] font-bold mb-2">Notes:</p>
         <div className="pd-notes-box">{appt.notes || "No notes available"}</div>
+      </div>
     </div>
   );
 }
 
-// Charts
+// ─── Charts ───────────────────────────────────────────────────────────────────
 
 function MedicationDonutChart({ taken, missed, pending, total }: {
   taken: number; missed: number; pending: number; total: number;
@@ -302,7 +284,7 @@ function ActivityBarChart({ plans }: { plans: ActivityPlanRecord[] }) {
   );
 }
 
-// Main Page
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PatientDashboardPage() {
   const [data, setData] = useState<PatientDashboardData | null>(null);
@@ -313,8 +295,8 @@ export default function PatientDashboardPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/dashboard/patient").then((r) => r.ok ? r.json() : null),
-      fetch("/api/wellness/recommendations").then((r) => r.ok ? r.json() : null),
+      fetch("/api/dashboard/patient").then((r) => r.json()),
+      fetch("/api/wellness/recommendations").then((r) => r.json()),
     ]).then(([dashJson, recJson]) => {
       setData(dashJson?.data ?? dashJson);
       const rec = recJson?.recommendation ?? recJson?.summary ?? recJson?.message ?? null;
@@ -549,15 +531,3 @@ export default function PatientDashboardPage() {
     </main>
   );
 }
-=======
-
-  return (
-    <PatientDashboardClient
-      activitySummary={activitySummary}
-      dashboard={dashboard}
-      medicationLogs={medicationLogs}
-      medicationSummary={medicationSummary}
-    />
-  );
-}
->>>>>>> c0d4d6c8dc033ab7ca696114d2b1b425bac15b38
