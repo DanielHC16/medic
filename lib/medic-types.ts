@@ -19,6 +19,7 @@ export type PreferredContactMethod = "app" | "email" | "sms";
 export type TimeFormatPreference = "12h" | "24h";
 
 export type UserPreferences = {
+  chatbotEnabled: boolean;
   dailySummaryEnabled: boolean;
   highContrastEnabled: boolean;
   largeTextEnabled: boolean;

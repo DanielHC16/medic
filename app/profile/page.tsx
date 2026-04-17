@@ -60,6 +60,7 @@ export default function PatientProfilePage() {
       <nav className="pd-nav">
         <Link href="/patient/dashboard" className="pd-nav-link"><House className="w-7 h-7" /></Link>
         <Link href="/patient/schedule" className="pd-nav-link"><Clock className="w-7 h-7" /></Link>
+        <Link href="/patient/medications" className="pd-nav-link"><Pill className="w-7 h-7" /></Link>
         <Link href="/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
         <div className="pd-nav-active">
           <Link href="/patient/profile" className="flex items-center justify-center w-full h-full">

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { PatientDashboardChatbot } from "@/components/patient-dashboard-chatbot";
 import type { PatientDashboardData, ActivityPlanRecord } from "@/lib/medic-types";
 import {
   Sun, QrCode, UserRound, Bell, Bot,
@@ -372,6 +373,9 @@ export default function PatientDashboardPage() {
           <button className="pd-icon-btn" aria-label="QR Code">
             <QrCode className="w-5 h-5" />
           </button>
+          <PatientDashboardChatbot
+            enabled={data?.user.preferences.chatbotEnabled ?? false}
+          />
           <Link href="/profile">
             <div className="pd-avatar">
               <UserRound className="w-5 h-5" />
@@ -522,6 +526,7 @@ export default function PatientDashboardPage() {
           </Link>
         </div>
         <Link href="/patient/schedule" className="pd-nav-link"><Clock className="w-7 h-7" /></Link>
+        <Link href="/patient/medications" className="pd-nav-link"><Pill className="w-7 h-7" /></Link>
         <Link href="/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
         <Link href="/profile" className="pd-nav-link"><User className="w-7 h-7" /></Link>
       </nav>

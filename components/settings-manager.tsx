@@ -12,6 +12,7 @@ export function SettingsManager(props: {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [formState, setFormState] = useState({
+    chatbotEnabled: props.preferences.chatbotEnabled,
     dailySummaryEnabled: props.preferences.dailySummaryEnabled,
     highContrastEnabled: props.preferences.highContrastEnabled,
     largeTextEnabled: props.preferences.largeTextEnabled,
@@ -26,6 +27,7 @@ export function SettingsManager(props: {
     try {
       const response = await fetch("/api/settings", {
         body: JSON.stringify({
+          chatbotEnabled: formData.get("chatbotEnabled") === "on",
           dailySummaryEnabled: formData.get("dailySummaryEnabled") === "on",
           highContrastEnabled: formData.get("highContrastEnabled") === "on",
           largeTextEnabled: formData.get("largeTextEnabled") === "on",
@@ -134,6 +136,19 @@ export function SettingsManager(props: {
           />
 
           <ToggleRow
+            checked={formState.chatbotEnabled}
+            description="Show the patient dashboard chatbot and allow conversational AI help using the patient's current data."
+            name="chatbotEnabled"
+            onChange={(checked) =>
+              setFormState((current) => ({
+                ...current,
+                chatbotEnabled: checked,
+              }))
+            }
+            title="Enable chatbot"
+          />
+
+          <ToggleRow
             checked={formState.dailySummaryEnabled}
             description="Show and prepare the daily status summary for the patient dashboard."
             name="dailySummaryEnabled"
@@ -179,6 +194,10 @@ export function SettingsManager(props: {
           <PreviewItem
             label="High contrast"
             value={formState.highContrastEnabled ? "Enabled" : "Disabled"}
+          />
+          <PreviewItem
+            label="Chatbot"
+            value={formState.chatbotEnabled ? "Enabled" : "Disabled"}
           />
           <PreviewItem
             label="Daily summary"
