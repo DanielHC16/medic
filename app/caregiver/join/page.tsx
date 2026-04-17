@@ -40,6 +40,36 @@ export default async function JoinPage({ searchParams }: JoinPageProps) {
           />
         </div>
       </main>
+
+      {/* --- BOTTOM NAVIGATION BAR --- */}
+      <nav className="pd-nav">
+        {/* Dashboard */}
+        <Link href={user.role === "caregiver" ? "/caregiver/dashboard" : "/family/dashboard"} className="pd-nav-link">
+          <House className="w-7 h-7" />
+        </Link>
+        
+        {/* Monitoring / Updates */}
+        <Link href={activityHref} className="pd-nav-link">
+          <Activity className="w-7 h-7" />
+        </Link>
+
+        {/* Join a Patient - ACTIVE */}
+        <div className="pd-nav-active">
+          <Link href="/caregiver/join" className="flex items-center justify-center w-full h-full">
+            <UserPlus className="w-8 h-8" />
+          </Link>
+        </div>
+
+        {/* Wellness */}
+        <Link href="/caregiver/wellness" className="pd-nav-link">
+          <Heart className="w-7 h-7" />
+        </Link>
+
+        {/* Profile */}
+        <Link href={getProfileRouteForRole(user.role)} className="pd-nav-link">
+          <User className="w-7 h-7" />
+        </Link>
+      </nav>
     </div>
   );
 }

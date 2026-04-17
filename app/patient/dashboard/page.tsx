@@ -522,8 +522,8 @@ export default function PatientDashboardPage() {
           </Link>
         </div>
         <Link href="/patient/schedule" className="pd-nav-link"><Clock className="w-7 h-7" /></Link>
-        <Link href="/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
-        <Link href="/profile" className="pd-nav-link"><User className="w-7 h-7" /></Link>
+        <Link href="/patient/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
+        <Link href="/patient/profile" className="pd-nav-link"><User className="w-7 h-7" /></Link>
       </nav>
 
       {selectedMed && <MedicationModal med={selectedMed} summary={summary} onClose={() => setSelectedMed(null)} />}

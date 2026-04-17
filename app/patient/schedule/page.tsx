@@ -153,18 +153,18 @@ export default function ScheduleUI() {
 
         {/* Active Schedule Button (Static Green) */}
         <div className="relative -top-8">
-          <Link href="/patient/schedule" className="w-[68px] h-[68px] bg-[#4D6A56] rounded-full flex items-center justify-center text-white shadow-xl border-[6px] border-[#EFF3F1] transition-transform duration-300 hover:scale-105">
+          <Link href="/patient/schedule" className="w-[68px] h-[68px] bg-[#2f3e34] rounded-full flex items-center justify-center text-white shadow-xl border-[6px] border-[#EFF3F1] transition-transform duration-300 hover:scale-105">
             <ClockIcon className="w-8 h-8 text-white" />
           </Link>
         </div>
 
         {/* Health Info Link */}
-        <Link href="/wellness" className="group p-2">
+        <Link href="/patient/wellness" className="group p-2">
           <HeartIcon className="w-[28px] h-[28px] text-[#C0C8C3] transition-all duration-300 group-hover:text-[#4D6A56]" />
         </Link>
         
         {/* Settings/User Link */}
-        <Link href="/profile" className="group p-2">
+        <Link href="/patient/profile" className="group p-2">
           <UserOutlineIcon className="w-[28px] h-[28px] text-[#C0C8C3] transition-all duration-300 group-hover:text-[#4D6A56]" />
         </Link>
       </nav>

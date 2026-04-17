@@ -75,7 +75,7 @@ export default function FamilyProfilePage() {
       <nav className="pd-nav">
         <Link href="/family/dashboard" className="pd-nav-link"><House className="w-7 h-7" /></Link>
         <Link href="/family/updates" className="pd-nav-link"><Clock className="w-7 h-7" /></Link>
-        <Link href="/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
+        <Link href="/family/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
         <div className="pd-nav-active">
           <Link href="/family/profile" className="flex items-center justify-center w-full h-full">
             <User className="w-8 h-8" />

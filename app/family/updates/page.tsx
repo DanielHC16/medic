@@ -2,37 +2,36 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { UserRound, Pill, Activity, Calendar, ChevronLeft } from "lucide-react";
+// Added House, Clock, Heart, and User for the bottom nav
+import { UserRound, Pill, Activity, Calendar, ChevronLeft, House, Clock, Heart, User } from "lucide-react";
 
 type Tab = "medication" | "schedule" | "activities";
 
 // Static sample data
-
 const SAMPLE_PATIENTS = [
   { id: "1", name: "Elderly 1" },
   { id: "2", name: "Elderly 2" },
 ];
 
 const SAMPLE_MED_LOGS = [
-  { id: "m1", time: "10:05 AM", isToday: true,  actor: "Caregiver", name: "Acetaminophen" },
-  { id: "m2", time: "8:01 PM",  isToday: false, actor: "Caregiver", name: "Acetaminophen" },
-  { id: "m3", time: "2:12 PM",  isToday: false, actor: "Caregiver", name: "Acetaminophen" },
-  { id: "m4", time: "8:09 AM",  isToday: false, actor: "Caregiver", name: "Acetaminophen" },
+  { id: "m1", time: "10:05 AM", isToday: true, actor: "Caregiver", name: "Acetaminophen" },
+  { id: "m2", time: "8:01 PM", isToday: false, actor: "Caregiver", name: "Acetaminophen" },
+  { id: "m3", time: "2:12 PM", isToday: false, actor: "Caregiver", name: "Acetaminophen" },
+  { id: "m4", time: "8:09 AM", isToday: false, actor: "Caregiver", name: "Acetaminophen" },
 ];
 
 const SAMPLE_SCHEDULE_LOGS = [
-  { id: "s1", time: "10:00 AM", isToday: true,  title: "Check Up",       provider: "Dr. Who" },
-  { id: "s2", time: "3:00 PM",  isToday: false, title: "Follow-up Visit", provider: "Dr. Who" },
+  { id: "s1", time: "10:00 AM", isToday: true, title: "Check Up", provider: "Dr. Who" },
+  { id: "s2", time: "3:00 PM", isToday: false, title: "Follow-up Visit", provider: "Dr. Who" },
 ];
 
 const SAMPLE_ACTIVITY_LOGS = [
-  { id: "a1", time: "9:00 AM",  isToday: true,  title: "Morning Walk",       status: "done" },
-  { id: "a2", time: "7:30 AM",  isToday: false, title: "Breathing Exercise", status: "done" },
-  { id: "a3", time: "4:00 PM",  isToday: false, title: "Light Stretching",   status: "missed" },
+  { id: "a1", time: "9:00 AM", isToday: true, title: "Morning Walk", status: "done" },
+  { id: "a2", time: "7:30 AM", isToday: false, title: "Breathing Exercise", status: "done" },
+  { id: "a3", time: "4:00 PM", isToday: false, title: "Light Stretching", status: "missed" },
 ];
 
 // Log card 
-
 function LogCard({ time, isToday, children }: { time: string; isToday: boolean; children: React.ReactNode }) {
   return (
     <div className="pd-card p-4">
@@ -46,13 +45,12 @@ function LogCard({ time, isToday, children }: { time: string; isToday: boolean; 
 }
 
 // Page
-
 export default function FamilyUpdatesPage() {
   const [tab, setTab] = useState<Tab>("medication");
   const [activePatient, setActivePatient] = useState("1");
 
   return (
-    <main className="pd-page pb-10">
+    <main className="pd-page pb-24"> {/* Increased padding bottom to clear the nav */}
 
       {/* Back */}
       <div className="mb-4">
@@ -194,6 +192,31 @@ export default function FamilyUpdatesPage() {
           </div>
         </>
       )}
+
+      {/* --- BOTTOM NAVIGATION BAR --- */}
+      <nav className="pd-nav">
+        {/* Home */}
+        <Link href="/family/dashboard" className="pd-nav-link">
+          <House className="w-7 h-7" />
+        </Link>
+
+        {/* Updates - ACTIVE */}
+        <div className="pd-nav-active">
+          <Link href="/family/updates" className="flex items-center justify-center w-full h-full">
+            <Clock className="w-8 h-8" />
+          </Link>
+        </div>
+
+        {/* Wellness */}
+        <Link href="/family/wellness" className="pd-nav-link">
+          <Heart className="w-7 h-7" />
+        </Link>
+
+        {/* Profile */}
+        <Link href="/family/profile" className="pd-nav-link">
+          <User className="w-7 h-7" />
+        </Link>
+      </nav>
 
     </main>
   );
