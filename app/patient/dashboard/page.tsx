@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 "use client";
 
 import { useEffect, useState } from "react";
@@ -10,6 +11,26 @@ import {
 } from "lucide-react";
 
 // Helpers 
+=======
+import { requireRole } from "@/lib/auth/dal";
+import {
+  getActivitySummary,
+  getMedicationAdherenceSummary,
+  getPatientDashboardData,
+  listMedicationLogsForPatient,
+} from "@/lib/db/medic-data";
+
+import PatientDashboardClient from "./PatientDashboardClient";
+
+export default async function PatientDashboardPage() {
+  const user = await requireRole("patient");
+  const [dashboard, medicationLogs, activitySummary, medicationSummary] = await Promise.all([
+    getPatientDashboardData(user.userId),
+    listMedicationLogsForPatient(user.userId, 20),
+    getActivitySummary(user.userId),
+    getMedicationAdherenceSummary(user.userId),
+  ]);
+>>>>>>> c0d4d6c8dc033ab7ca696114d2b1b425bac15b38
 
 function statusPillClass(status: string): string {
   switch (status.toLowerCase()) {
@@ -19,6 +40,7 @@ function statusPillClass(status: string): string {
     case "pending":    return "pd-status-pending";
     default:           return "pd-status-default";
   }
+<<<<<<< HEAD
 }
 
 // Medication Modal
@@ -527,3 +549,15 @@ export default function PatientDashboardPage() {
     </main>
   );
 }
+=======
+
+  return (
+    <PatientDashboardClient
+      activitySummary={activitySummary}
+      dashboard={dashboard}
+      medicationLogs={medicationLogs}
+      medicationSummary={medicationSummary}
+    />
+  );
+}
+>>>>>>> c0d4d6c8dc033ab7ca696114d2b1b425bac15b38

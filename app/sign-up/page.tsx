@@ -1,16 +1,40 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+
+// --- Icons used for the PWA Popup ---
+function DownloadIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+    </svg>
+  );
+}
+
+function InfoIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+function CloseIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
+// ------------------------------------
 
 export default function SignUpPage() {
   const router = useRouter();
 
   // 1. Wizard Step State
-  // 1: Role, 2: Info, 3: Contact, 4: Passwords
-  // 5: Patient health profile, 6: Optional invite details
   const [step, setStep] = useState(1);
 
   // 2. Form Data State
@@ -35,6 +59,52 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 4. PWA Install Prompt State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallPopup, setShowInstallPopup] = useState(false);
+  const [finalRedirectUrl, setFinalRedirectUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      // Prevent Chrome 67 and earlier from automatically showing the prompt
+      e.preventDefault();
+      // Stash the event so it can be triggered later.
+      setDeferredPrompt(e);
+      // We do NOT set showInstallPopup(true) here because we want to wait until registration completes
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const proceedToDashboard = (url: string | null) => {
+    if (url) {
+      router.push(url);
+      router.refresh();
+    }
+  };
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+    
+    setShowInstallPopup(false);
+    proceedToDashboard(finalRedirectUrl);
+  };
+
+  const handleDismissInstall = () => {
+    setShowInstallPopup(false);
+    proceedToDashboard(finalRedirectUrl);
+  };
+
   // Helpers to update form fields
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -49,18 +119,17 @@ export default function SignUpPage() {
     setFormData((prev) => ({ ...prev, assistance }));
   };
 
-  // 4. Navigation Handlers
+  // 5. Navigation Handlers
   const handleBack = () => {
     setError(null);
     if (step > 1) {
       setStep((prev) => prev - 1);
       return;
     }
-
     router.push('/');
   };
 
-  // 5. Final Submission Logic
+  // 6. Final Submission Logic
   const submitForm = async (): Promise<string> => {
     setIsLoading(true);
     try {
@@ -110,7 +179,7 @@ export default function SignUpPage() {
     }
   };
 
-  // 6. Wizard Flow Handler
+  // 7. Wizard Flow Handler
   const handleNextOrSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setError(null);
@@ -155,27 +224,24 @@ export default function SignUpPage() {
       return;
     }
 
-    // Step 5: Patient profile submission
-    if (step === 5) {
-      if (formData.assistance === 'limited_mobility' && !formData.assistanceDetails) {
+    // Submission step triggers (Step 5 or 6 depending on role)
+    if (step === 5 || step === 6) {
+      if (step === 5 && formData.assistance === 'limited_mobility' && !formData.assistanceDetails) {
         setError("Please specify your mobility limitations.");
         return;
       }
 
       const redirectTo = await submitForm();
       if (redirectTo) {
-        router.push(redirectTo);
-        router.refresh();
-      }
-      return;
-    }
-
-    // Step 6: Caregiver/family invite details and submission
-    if (step === 6) {
-      const redirectTo = await submitForm();
-      if (redirectTo) {
-        router.push(redirectTo);
-        router.refresh();
+        // Successful Registration Interception:
+        // If the device supports PWA and it's not installed, show the prompt.
+        if (deferredPrompt) {
+          setFinalRedirectUrl(redirectTo);
+          setShowInstallPopup(true);
+        } else {
+          // If already installed or not supported (like iOS Safari), route normally.
+          proceedToDashboard(redirectTo);
+        }
       }
       return;
     }
@@ -507,6 +573,64 @@ export default function SignUpPage() {
 
       {/* Mobile-specific safe-area bottom padding */}
       <div className="h-8 w-full bg-[#4A7C59]" aria-hidden="true" />
+
+      {/* --- PWA Install Popup UI (Matches Sign In Page) --- */}
+      {showInstallPopup && (
+        <div className="fixed bottom-4 left-4 right-4 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
+          <div className="bg-[#3F6F50] rounded-3xl p-6 shadow-2xl relative overflow-hidden border border-white/10">
+            
+            {/* Close Button */}
+            <button 
+              onClick={handleDismissInstall}
+              className="absolute top-4 right-4 text-white/70 hover:text-white transition"
+              aria-label="Dismiss install prompt"
+            >
+              <CloseIcon className="w-6 h-6" />
+            </button>
+
+            {/* Header / Title */}
+            <div className="flex items-center gap-3 mb-2 pr-8">
+              <div className="p-2 border border-white/20 rounded-xl bg-white/10 text-white">
+                <DownloadIcon className="w-6 h-6" />
+              </div>
+              <h2 className="text-xl font-semibold text-white tracking-wide">
+                Install MEDIC
+              </h2>
+            </div>
+
+            {/* Description text */}
+            <p className="text-white/90 text-sm mb-6 leading-relaxed">
+              Account created successfully! Get quick access and work offline with our app.
+            </p>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 w-full">
+              <button 
+                onClick={handleInstallClick}
+                className="flex-1 bg-white text-[#3F6F50] py-3 px-4 rounded-2xl font-bold hover:bg-gray-100 transition shadow-sm"
+              >
+                Install
+              </button>
+              <button 
+                onClick={handleDismissInstall}
+                className="flex-1 bg-transparent text-white border border-white/30 py-3 px-4 rounded-2xl font-medium hover:bg-white/10 transition"
+              >
+                Not now
+              </button>
+            </div>
+
+            {/* Footer Features Info */}
+            <div className="mt-5 pt-4 border-t border-white/20 flex items-start sm:items-center gap-2">
+              <InfoIcon className="w-5 h-5 text-white/70 shrink-0 mt-[2px] sm:mt-0" />
+              <p className="text-xs text-white/80 font-medium">
+                Works offline • Faster loading • Home screen access
+              </p>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }

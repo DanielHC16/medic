@@ -1,5 +1,12 @@
-import { canManagePatientData, requirePatientScope } from "@/lib/auth/dal";
-import { recordMedicationLog } from "@/lib/db/medic-data";
+import {
+  canManagePatientData,
+  requirePatientScope,
+  requireRole,
+} from "@/lib/auth/dal";
+import {
+  listMedicationLogsForPatient,
+  recordMedicationLog,
+} from "@/lib/db/medic-data";
 import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import type { MedicationLogStatus } from "@/lib/medic-types";
 
