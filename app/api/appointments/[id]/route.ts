@@ -4,7 +4,11 @@ import {
   updateAppointment,
 } from "@/lib/db/medic-data";
 import { revalidateMedicAppPaths } from "@/lib/revalidation";
-import { getOptionalString, getRequiredString } from "@/lib/validation";
+import {
+  getOptionalImageDataUrl,
+  getOptionalString,
+  getRequiredString,
+} from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +37,7 @@ export async function PATCH(
     await updateAppointment({
       appointmentAt: getRequiredString(body.appointmentAt, "Appointment time"),
       appointmentId: id,
+      imageDataUrl: getOptionalImageDataUrl(body.imageDataUrl, "Appointment image"),
       location: getOptionalString(body.location),
       notes: getOptionalString(body.notes),
       patientUserId: scope.patientUserId,
