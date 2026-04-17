@@ -5,6 +5,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
+type DeferredPromptEvent = Event & {
+  prompt: () => Promise<void> | void;
+  userChoice: Promise<{
+    outcome: 'accepted' | 'dismissed';
+  }>;
+};
+
 // --- Icons used for the PWA Popup ---
 function DownloadIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -60,7 +67,7 @@ export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
 
   // 4. PWA Install Prompt State
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<DeferredPromptEvent | null>(null);
   const [showInstallPopup, setShowInstallPopup] = useState(false);
   const [finalRedirectUrl, setFinalRedirectUrl] = useState<string | null>(null);
 
@@ -69,7 +76,7 @@ export default function SignUpPage() {
       // Prevent Chrome 67 and earlier from automatically showing the prompt
       e.preventDefault();
       // Stash the event so it can be triggered later.
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as DeferredPromptEvent);
       // We do NOT set showInstallPopup(true) here because we want to wait until registration completes
     };
 

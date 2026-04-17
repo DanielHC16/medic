@@ -15,6 +15,7 @@ function createContext(overrides?: Partial<PatientChatContext>): PatientChatCont
         daysOfWeek: ["Mon", "Wed", "Fri"],
         frequencyType: "weekly",
         id: "activity-1",
+        imageDataUrl: null,
         instructions: "Keep the pace light.",
         isActive: true,
         latestCompletedAt: null,
@@ -32,6 +33,7 @@ function createContext(overrides?: Partial<PatientChatContext>): PatientChatCont
       {
         appointmentAt: "2099-04-20T10:00:00.000Z",
         id: "appointment-1",
+        imageDataUrl: null,
         location: "Clinic A",
         notes: "Bring medication list",
         providerName: "Dr. Cruz",

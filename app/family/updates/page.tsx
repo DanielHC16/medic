@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
-// Added House, Clock, Heart, and User for the bottom nav
-import { UserRound, Pill, Activity, Calendar, ChevronLeft, House, Clock, Heart, User } from "lucide-react";
+import { Activity, Calendar, ChevronLeft, Pill, UserRound } from "lucide-react";
+
+import { CareMemberBottomNav } from "@/components/care-member-bottom-nav";
 
 type Tab = "medication" | "schedule" | "activities";
 
@@ -193,30 +194,7 @@ export default function FamilyUpdatesPage() {
         </>
       )}
 
-      {/* --- BOTTOM NAVIGATION BAR --- */}
-      <nav className="pd-nav">
-        {/* Home */}
-        <Link href="/family/dashboard" className="pd-nav-link">
-          <House className="w-7 h-7" />
-        </Link>
-
-        {/* Updates - ACTIVE */}
-        <div className="pd-nav-active">
-          <Link href="/family/updates" className="flex items-center justify-center w-full h-full">
-            <Clock className="w-8 h-8" />
-          </Link>
-        </div>
-
-        {/* Wellness */}
-        <Link href="/family/wellness" className="pd-nav-link">
-          <Heart className="w-7 h-7" />
-        </Link>
-
-        {/* Profile */}
-        <Link href="/family/profile" className="pd-nav-link">
-          <User className="w-7 h-7" />
-        </Link>
-      </nav>
+      <CareMemberBottomNav activeItem="activity" role="family_member" />
 
     </main>
   );

@@ -1,11 +1,9 @@
 import Link from "next/link";
-import { House, Clock, Heart, User } from "lucide-react"; // Match dashboard icons
+import { PatientBottomNav } from "@/components/patient-bottom-nav";
 
 import { WellnessManager } from "@/components/wellness-manager";
 import {
   canManagePatientData,
-  getDefaultRouteForRole,
-  getProfileRouteForRole,
   requirePatientScope,
 } from "@/lib/auth/dal";
 import {
@@ -26,15 +24,6 @@ export default async function WellnessPage({ searchParams }: WellnessPageProps) 
   const scope = await requirePatientScope(resolvedSearchParams.patientId ?? null);
   
   const userRole = scope.user.role;
-  const dashboardHref =
-    userRole === "patient"
-      ? getDefaultRouteForRole(userRole)
-      : `${getDefaultRouteForRole(userRole)}${
-          scope.patientUserId ? `?patientId=${scope.patientUserId}` : ""
-        }`;
-  
-  const scheduleHref = "/patient/schedule";
-  const profileHref = getProfileRouteForRole(userRole);
 
   const [activityPlans, appointments, activityLogs, activitySummary] = scope.patientUserId 
     ? await Promise.all([
@@ -75,30 +64,7 @@ export default async function WellnessPage({ searchParams }: WellnessPageProps) 
         )}
       </main>
 
-      {/* --- BOTTOM NAVIGATION BAR (Dashboard Style) --- */}
-      <nav className="pd-nav">
-        {/* Home */}
-        <Link href="/patient/dashboard" className="pd-nav-link">
-          <House className="w-7 h-7" />
-        </Link>
-
-        {/* Schedule */}
-        <Link href="/patient/schedule" className="pd-nav-link">
-          <Clock className="w-7 h-7" />
-        </Link>
-
-        {/* Wellness - ACTIVE */}
-        <div className="pd-nav-active">
-          <Link href="/patient/wellness" className="flex items-center justify-center w-full h-full">
-            <Heart className="w-8 h-8" />
-          </Link>
-        </div>
-
-        {/* Profile */}
-        <Link href="/patient/profile" className="pd-nav-link">
-          <User className="w-7 h-7" />
-        </Link>
-      </nav>
+      <PatientBottomNav activeItem="wellness" />
     </div>
   );
 }

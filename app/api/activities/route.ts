@@ -5,6 +5,7 @@ import {
 } from "@/lib/db/medic-data";
 import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import {
+  getOptionalImageDataUrl,
   getOptionalNumber,
   getOptionalString,
   getRequiredString,
@@ -55,6 +56,7 @@ export async function POST(request: Request) {
       createdByUserId: scope.user.userId,
       daysOfWeek: getStringArray(body.daysOfWeek),
       frequencyType: getRequiredString(body.frequencyType, "Frequency"),
+      imageDataUrl: getOptionalImageDataUrl(body.imageDataUrl, "Routine image"),
       instructions: getOptionalString(body.instructions),
       patientUserId: scope.patientUserId,
       targetMinutes: getOptionalNumber(body.targetMinutes),

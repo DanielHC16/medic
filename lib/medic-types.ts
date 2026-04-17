@@ -126,6 +126,7 @@ export type ActivityPlanRecord = {
   daysOfWeek: string[];
   frequencyType: string;
   id: string;
+  imageDataUrl: string | null;
   instructions: string | null;
   isActive: boolean;
   latestCompletedAt: string | null;
@@ -155,6 +156,7 @@ export type ActivitySummary = {
 export type AppointmentRecord = {
   appointmentAt: string;
   id: string;
+  imageDataUrl: string | null;
   location: string | null;
   notes: string | null;
   providerName: string | null;
@@ -163,6 +165,7 @@ export type AppointmentRecord = {
 };
 
 export type PatientDashboardData = {
+  activitySummary: ActivitySummary;
   activityPlans: ActivityPlanRecord[];
   appointments: AppointmentRecord[];
   careCircle: {
@@ -177,6 +180,7 @@ export type PatientDashboardData = {
   };
   medications: MedicationRecord[];
   patientProfile: PatientProfile | null;
+  recentMedicationLogs: MedicationLogRecord[];
   user: AuthenticatedUser;
 };
 

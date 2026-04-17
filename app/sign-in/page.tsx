@@ -5,6 +5,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 
+type DeferredPromptEvent = Event & {
+  prompt: () => Promise<void> | void;
+  userChoice: Promise<{
+    outcome: 'accepted' | 'dismissed';
+  }>;
+};
+
 export default function SignInPage() {
   return (
     <Suspense fallback={<SignInPageShell inviteCode="" />}>
@@ -68,8 +75,7 @@ function SignInPageShell({ inviteCode }: { inviteCode: string }) {
   const [error, setError] = useState<string | null>(null);
 
   // 3. PWA Install Prompt State
-  // We use `any` here because BeforeInstallPromptEvent is not a standard TS type yet
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<DeferredPromptEvent | null>(null);
   const [showInstallPopup, setShowInstallPopup] = useState(false);
 
   // Listen for the PWA install prompt event
@@ -78,7 +84,7 @@ function SignInPageShell({ inviteCode }: { inviteCode: string }) {
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
       // Stash the event so it can be triggered later.
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as DeferredPromptEvent);
       // Update UI notify the user they can install the PWA
       setShowInstallPopup(true);
     };

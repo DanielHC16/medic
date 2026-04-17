@@ -1,7 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
-import { Stethoscope, MapPin, X, Paperclip } from "lucide-react";
+import { Stethoscope, MapPin, X } from "lucide-react";
 import { AppointmentEditModal } from "@/components/appointment-edit-modal";
 
 function statusPillClass(status: string) {
@@ -19,6 +20,7 @@ export interface AppointmentModalData {
   date: string;
   time: string;
   title: string;
+  imageDataUrl?: string | null;
   provider?: string;
   location?: string;
   notes?: string;
@@ -82,29 +84,43 @@ export function AppointmentViewModal({ data, canEdit = false, onClose, onMarkDon
         )}
       </div>
 
+      {data.imageDataUrl ? (
+        <div className="mb-6 overflow-hidden rounded-2xl border border-[#2F3E34]/10 bg-white">
+          <Image
+            src={data.imageDataUrl}
+            alt={`${data.title} attachment`}
+            width={720}
+            height={400}
+            className="h-full w-full object-cover"
+            unoptimized
+          />
+        </div>
+      ) : null}
+
       <div className="flex justify-between items-center mb-2">
         <p className="text-[13px] font-bold">Notes:</p>
-        <button className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 rounded-full border border-[#2F3E34]/30 bg-[#F6F7F2] hover:bg-[#E5E7EB] transition">
-          <Paperclip className="w-3.5 h-3.5" /> View Attachments
-        </button>
       </div>
       <div className="pd-notes-box mb-6">{data.notes || "Notes noted here"}</div>
 
       {/* Bottom buttons */}
-      {canEdit && (
+      {(canEdit || onMarkDone) && (
         <div className="flex gap-3">
-          <button
-            onClick={() => setEditOpen(true)}
-            className="flex-1 py-3.5 rounded-full text-[13px] font-bold uppercase tracking-widest"
-            style={{ background: "#E9C46A", color: "#2F3E34" }}>
-            EDIT
-          </button>
-          <button
-            onClick={onMarkDone}
-            className="flex-1 py-3.5 rounded-full text-[13px] font-bold uppercase tracking-widest text-white"
-            style={{ background: "#2F3E34" }}>
-            MARK AS DONE
-          </button>
+          {canEdit ? (
+            <button
+              onClick={() => setEditOpen(true)}
+              className="flex-1 py-3.5 rounded-full text-[13px] font-bold uppercase tracking-widest"
+              style={{ background: "#E9C46A", color: "#2F3E34" }}>
+              EDIT
+            </button>
+          ) : null}
+          {onMarkDone ? (
+            <button
+              onClick={onMarkDone}
+              className="flex-1 py-3.5 rounded-full text-[13px] font-bold uppercase tracking-widest text-white"
+              style={{ background: "#2F3E34" }}>
+              MARK AS DONE
+            </button>
+          ) : null}
         </div>
       )}
     </div>

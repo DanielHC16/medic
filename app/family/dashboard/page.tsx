@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
-  Sun, QrCode, UserRound, Bell, Pill, House, Clock, Heart,
-  User, CalendarDays, Stethoscope, MapPin, AlertTriangle, Check,
+  Sun, QrCode, UserRound, Bell, Pill,
+  CalendarDays, Stethoscope, MapPin, AlertTriangle, Check,
   X, AlarmClock,
 } from "lucide-react";
-import { MedicationViewModal } from "@/components/medication-view-modal";
-import { AppointmentViewModal } from "@/components/appointment-view-modal";
+import { CareMemberBottomNav } from "@/components/care-member-bottom-nav";
 
 // ─── Hardcoded sample data ────────────────────────────────────────────────────
 
@@ -351,15 +350,7 @@ export default function FamilyDashboardPage() {
           </div>
         </div>
 
-      {/* Bottom Nav */}
-      <nav className="pd-nav">
-        <div className="pd-nav-active">
-          <Link href="/family/dashboard" className="flex items-center justify-center w-full h-full"><House className="w-8 h-8" /></Link>
-        </div>
-        <Link href="/family/updates" className="pd-nav-link"><Clock className="w-7 h-7" /></Link>
-        <Link href="/family/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
-        <Link href="/family/profile" className="pd-nav-link"><User className="w-7 h-7" /></Link>
-      </nav>
+      <CareMemberBottomNav activeItem="home" role="family_member" />
       {medModalOpen && <MedicationModal onClose={() => setMedModalOpen(false)} />}
       {apptModalOpen && <AppointmentModal onClose={() => setApptModalOpen(false)} />}
     </main>

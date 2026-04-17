@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
+  type ChangeEvent,
   type Dispatch,
   type FormEvent,
   type SetStateAction,
@@ -23,6 +25,7 @@ type RoutineDraft = {
   category: string;
   daysOfWeek: string[];
   frequencyType: string;
+  imageDataUrl: string | null;
   instructions: string;
   targetMinutes: string;
   title: string;
@@ -31,6 +34,7 @@ type RoutineDraft = {
 type AppointmentDraft = {
   appointmentDate: string;
   appointmentTime: string;
+  imageDataUrl: string | null;
   location: string;
   notes: string;
   providerName: string;
@@ -57,9 +61,14 @@ const ROUTINE_CATEGORY_SUGGESTIONS = [
 
 const ROUTINE_FREQUENCY_OPTIONS = [
   {
-    description: "The routine is expected every day.",
-    label: "Every day",
+    description: "The routine can be completed once on each scheduled day.",
+    label: "Once a day",
     value: "daily",
+  },
+  {
+    description: "The routine can be completed twice on each scheduled day.",
+    label: "Twice a day",
+    value: "twice_daily",
   },
   {
     description: "Use the same plan from Monday to Friday.",
@@ -125,6 +134,7 @@ function createRoutineDraft(item?: ActivityPlanRecord): RoutineDraft {
     category: item?.category ?? "",
     daysOfWeek: item?.daysOfWeek.length ? [...item.daysOfWeek] : [...EVERY_DAY],
     frequencyType: normalizedFrequencyType,
+    imageDataUrl: item?.imageDataUrl ?? null,
     instructions: item?.instructions ?? "",
     targetMinutes: item?.targetMinutes ? String(item.targetMinutes) : "",
     title: item?.title ?? "",
@@ -152,6 +162,7 @@ function createAppointmentDraft(item?: AppointmentRecord): AppointmentDraft {
   return {
     appointmentDate: localDateTime.slice(0, 10),
     appointmentTime: localDateTime.slice(11, 16),
+    imageDataUrl: item?.imageDataUrl ?? null,
     location: item?.location ?? "",
     notes: item?.notes ?? "",
     providerName: item?.providerName ?? "",
@@ -161,7 +172,7 @@ function createAppointmentDraft(item?: AppointmentRecord): AppointmentDraft {
 }
 
 function getRoutineDaysForFrequency(draft: RoutineDraft) {
-  if (draft.frequencyType === "daily") {
+  if (draft.frequencyType === "daily" || draft.frequencyType === "twice_daily") {
     return [...EVERY_DAY];
   }
 
@@ -215,6 +226,7 @@ function buildRoutinePayload(draft: RoutineDraft) {
     category,
     daysOfWeek,
     frequencyType: draft.frequencyType || "daily",
+    ...(draft.imageDataUrl ? { imageDataUrl: draft.imageDataUrl } : {}),
     instructions: draft.instructions.trim() || null,
     targetMinutes: targetMinutes || null,
     title,
@@ -228,6 +240,7 @@ function createRoutineDraftFromSuggestion(
     category: routine.category,
     daysOfWeek: [...routine.daysOfWeek],
     frequencyType: routine.frequencyType,
+    imageDataUrl: null,
     instructions: routine.instructions,
     targetMinutes: routine.targetMinutes ? String(routine.targetMinutes) : "",
     title: routine.title,
@@ -260,6 +273,7 @@ function buildAppointmentPayload(draft: AppointmentDraft, includeStatus: boolean
 
   const payload = {
     appointmentAt,
+    ...(draft.imageDataUrl ? { imageDataUrl: draft.imageDataUrl } : {}),
     location: draft.location.trim() || null,
     notes: draft.notes.trim() || null,
     providerName: draft.providerName.trim() || null,
@@ -273,6 +287,67 @@ function buildAppointmentPayload(draft: AppointmentDraft, includeStatus: boolean
   return {
     ...payload,
     status: draft.status.trim() || "scheduled",
+  };
+}
+
+function readImageAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("Unable to read the selected image."));
+    };
+    reader.onerror = () => reject(new Error("Unable to read the selected image."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function getManilaDateKey(date: Date) {
+  return date.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+}
+
+function getRoutineDailyLimit(frequencyType: string) {
+  return frequencyType === "twice_daily" ? 2 : 1;
+}
+
+function getActivityLogDateKey(log: ActivityLogRecord) {
+  if (log.scheduledFor) {
+    return log.scheduledFor.slice(0, 10);
+  }
+
+  const sourceValue = log.completedAt || log.createdAt;
+  return sourceValue ? sourceValue.slice(0, 10) : "";
+}
+
+function getRoutineProgressForToday(
+  plan: ActivityPlanRecord,
+  logs: ActivityLogRecord[],
+  todayKey: string,
+) {
+  const routineLogs = logs.filter(
+    (log) => log.activityPlanId === plan.id && getActivityLogDateKey(log) === todayKey,
+  );
+  const completionLimit = getRoutineDailyLimit(plan.frequencyType);
+  const completionCount = routineLogs.filter(
+    (log) => log.completionStatus === "done" || log.completionStatus === "missed",
+  ).length;
+  const manilaNow = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }),
+  );
+  const currentWeekday = WEEKDAY_OPTIONS[manilaNow.getDay()];
+  const isScheduledToday =
+    plan.daysOfWeek.length === 0 || plan.daysOfWeek.includes(currentWeekday);
+
+  return {
+    canLogMore: isScheduledToday && completionCount < completionLimit,
+    completionCount,
+    completionLimit,
+    isScheduledToday,
   };
 }
 
@@ -405,6 +480,65 @@ function SuggestionChips(props: {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function ImageUploadField(props: {
+  disabled?: boolean;
+  label: string;
+  onChange: (value: string | null) => void;
+  value: string | null;
+}) {
+  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      props.onChange(await readImageAsDataUrl(file));
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  return (
+    <div className="grid gap-3">
+      <label className="grid gap-2">
+        <span className="text-sm font-medium text-[var(--foreground)]">{props.label}</span>
+        <input
+          type="file"
+          accept="image/*"
+          disabled={props.disabled}
+          onChange={handleImageChange}
+          className="medic-field file:mr-3 file:rounded-full file:border-0 file:bg-[var(--color-primary)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
+        />
+      </label>
+
+      {props.value ? (
+        <div className="grid gap-3 rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4">
+          <div className="h-36 w-full overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white">
+            <Image
+              src={props.value}
+              alt={`${props.label} preview`}
+              width={720}
+              height={360}
+              className="h-full w-full object-cover"
+              unoptimized
+            />
+          </div>
+          <button
+            type="button"
+            disabled={props.disabled}
+            onClick={() => props.onChange(null)}
+            className="medic-button w-fit px-4 py-2 text-sm"
+          >
+            Remove image
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -552,7 +686,7 @@ function RoutineFormFields(props: {
               props.setDraft((current) => ({
                 ...current,
                 daysOfWeek:
-                  value === "daily"
+                  value === "daily" || value === "twice_daily"
                     ? [...EVERY_DAY]
                     : value === "weekdays"
                       ? [...WEEKDAY_ONLY]
@@ -647,6 +781,18 @@ function RoutineFormFields(props: {
         }
         placeholder="Add reminders, safety notes, or pacing guidance."
         value={props.draft.instructions}
+      />
+
+      <ImageUploadField
+        disabled={props.pending}
+        label="Routine image"
+        onChange={(value) =>
+          props.setDraft((current) => ({
+            ...current,
+            imageDataUrl: value,
+          }))
+        }
+        value={props.draft.imageDataUrl}
       />
     </div>
   );
@@ -779,6 +925,18 @@ function AppointmentFormFields(props: {
         placeholder="Add preparation notes, what to bring, or transport reminders."
         value={props.draft.notes}
       />
+
+      <ImageUploadField
+        disabled={props.pending}
+        label="Appointment image"
+        onChange={(value) =>
+          props.setDraft((current) => ({
+            ...current,
+            imageDataUrl: value,
+          }))
+        }
+        value={props.draft.imageDataUrl}
+      />
     </div>
   );
 }
@@ -818,6 +976,7 @@ export function WellnessManager({
 
   const activePlans = activityPlans.filter((item) => item.isActive);
   const archivedPlans = activityPlans.filter((item) => !item.isActive);
+  const todayKey = getManilaDateKey(new Date());
 
   async function runRequest(
     url: string,
@@ -1088,11 +1247,18 @@ export function WellnessManager({
                 No active wellness routines yet.
               </p>
             ) : (
-              activePlans.map((item) => (
-                <article
-                  key={item.id}
-                  className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4"
-                >
+              activePlans.map((item) => {
+                const routineProgress = getRoutineProgressForToday(
+                  item,
+                  activityLogs,
+                  todayKey,
+                );
+
+                return (
+                  <article
+                    key={item.id}
+                    className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4"
+                  >
                   {editingRoutineId === item.id ? (
                     <div className="grid gap-4">
                       <RoutineFormFields
@@ -1126,6 +1292,18 @@ export function WellnessManager({
                   ) : (
                     <div className="flex flex-col gap-4">
                       <div>
+                        {item.imageDataUrl ? (
+                          <div className="mb-3 h-40 w-full overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white">
+                            <Image
+                              src={item.imageDataUrl}
+                              alt={`${item.title} routine`}
+                              width={720}
+                              height={400}
+                              className="h-full w-full object-cover"
+                              unoptimized
+                            />
+                          </div>
+                        ) : null}
                         <p className="text-lg font-semibold text-[var(--foreground)]">
                           {item.title}
                         </p>
@@ -1143,13 +1321,18 @@ export function WellnessManager({
                         <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
                           {item.instructions || "No extra instructions."}
                         </p>
+                        <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
+                          {routineProgress.isScheduledToday
+                            ? `${routineProgress.completionCount} of ${routineProgress.completionLimit} logs used today.`
+                            : "This routine is not scheduled for today."}
+                        </p>
                       </div>
                       {canManage ? (
                         <div className="flex flex-wrap gap-3">
                           <button
                             type="button"
                             onClick={() => logRoutine(item.id, "done")}
-                            disabled={pending}
+                            disabled={pending || !routineProgress.canLogMore}
                             className="medic-button medic-button-primary px-4 py-2 text-sm"
                           >
                             Mark done
@@ -1157,7 +1340,7 @@ export function WellnessManager({
                           <button
                             type="button"
                             onClick={() => logRoutine(item.id, "missed")}
-                            disabled={pending}
+                            disabled={pending || !routineProgress.canLogMore}
                             className="medic-button medic-button-soft px-4 py-2 text-sm"
                           >
                             Mark missed
@@ -1185,8 +1368,9 @@ export function WellnessManager({
                       ) : null}
                     </div>
                   )}
-                </article>
-              ))
+                  </article>
+                );
+              })
             )}
           </div>
         </section>
@@ -1240,6 +1424,18 @@ export function WellnessManager({
                   ) : (
                     <div className="flex flex-col gap-4">
                       <div>
+                        {item.imageDataUrl ? (
+                          <div className="mb-3 h-40 w-full overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white">
+                            <Image
+                              src={item.imageDataUrl}
+                              alt={`${item.title} appointment`}
+                              width={720}
+                              height={400}
+                              className="h-full w-full object-cover"
+                              unoptimized
+                            />
+                          </div>
+                        ) : null}
                         <p className="text-lg font-semibold text-[var(--foreground)]">
                           {item.title}
                         </p>

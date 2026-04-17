@@ -1,11 +1,9 @@
 import Link from "next/link";
-import { House, Activity, UserPlus, Heart, User } from "lucide-react";
 
+import { CareMemberBottomNav } from "@/components/care-member-bottom-nav";
 import { WellnessManager } from "@/components/wellness-manager";
 import {
   canManagePatientData,
-  getDefaultRouteForRole,
-  getProfileRouteForRole,
   requirePatientScope,
 } from "@/lib/auth/dal";
 import {
@@ -24,23 +22,7 @@ type WellnessPageProps = {
 export default async function WellnessPage({ searchParams }: WellnessPageProps) {
   const resolvedSearchParams = await searchParams;
   const scope = await requirePatientScope(resolvedSearchParams.patientId ?? null);
-  
   const userRole = scope.user.role;
-  const dashboardHref =
-    userRole === "patient"
-      ? getDefaultRouteForRole(userRole)
-      : `${getDefaultRouteForRole(userRole)}${
-          scope.patientUserId ? `?patientId=${scope.patientUserId}` : ""
-        }`;
-  const secondaryHref =
-    userRole === "patient"
-      ? "/patient/schedule"
-      : userRole === "caregiver"
-        ? `/caregiver/monitoring${scope.patientUserId ? `?patientId=${scope.patientUserId}` : ""}`
-        : `/family/updates${scope.patientUserId ? `?patientId=${scope.patientUserId}` : ""}`;
-  const tertiaryHref =
-    userRole === "patient" ? "/patient/care-circle" : "/caregiver/join";
-  const profileHref = getProfileRouteForRole(userRole);
 
   const [activityPlans, appointments, activityLogs, activitySummary] = scope.patientUserId 
     ? await Promise.all([
@@ -72,7 +54,7 @@ export default async function WellnessPage({ searchParams }: WellnessPageProps) 
           <section className="rounded-[2rem] border border-black/5 bg-white/90 p-8 shadow-sm text-center">
             <p className="text-gray-500">No linked patient is available yet.</p>
             <Link 
-              href="caregiver/join" 
+              href="/caregiver/join" 
               className="mt-4 inline-block text-sm font-bold text-[#5C8B6B] underline"
             >
               Connect to a patient
@@ -92,35 +74,11 @@ export default async function WellnessPage({ searchParams }: WellnessPageProps) 
         )}
       </main>
 
-      {/* --- BOTTOM NAVIGATION BAR --- */}
-      <nav className="pd-nav">
-        {/* Home */}
-        <Link href={dashboardHref} className="pd-nav-link">
-          <House className="w-7 h-7" />
-        </Link>
-        
-        {/* Role workspace */}
-        <Link href={secondaryHref} className="pd-nav-link">
-          <Activity className="w-7 h-7" />
-        </Link>
-
-        {/* Join / Care circle */}
-        <Link href={tertiaryHref} className="pd-nav-link">
-          <UserPlus className="w-7 h-7" />
-        </Link>
-
-        {/* Wellness - ACTIVE */}
-        <div className="pd-nav-active">
-          <Link href="/caregiver/wellness" className="flex items-center justify-center w-full h-full">
-            <Heart className="w-8 h-8" />
-          </Link>
-        </div>
-
-        {/* Profile */}
-        <Link href={profileHref} className="pd-nav-link">
-          <User className="w-7 h-7" />
-        </Link>
-      </nav>
+      <CareMemberBottomNav
+        activeItem="wellness"
+        patientUserId={scope.patientUserId}
+        role="caregiver"
+      />
     </div>
   );
 }

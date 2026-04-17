@@ -17,6 +17,7 @@ function createContext(overrides?: Partial<WellnessContext>): WellnessContext {
       {
         appointmentAt: "2099-04-20T10:00:00.000Z",
         id: "appointment-1",
+        imageDataUrl: null,
         location: "Clinic A",
         notes: "Bring medication list",
         providerName: "Dr. Cruz",

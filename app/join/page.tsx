@@ -1,9 +1,7 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { House, Activity, UserPlus, Heart, User } from "lucide-react";
 
 import { JoinPatientPanel } from "@/components/care-circle-manager";
-import { getCurrentUser, getProfileRouteForRole } from "@/lib/auth/dal";
+import { getCurrentUser } from "@/lib/auth/dal";
 
 type JoinPageProps = {
   searchParams: Promise<{
@@ -24,9 +22,6 @@ export default async function JoinPage({ searchParams }: JoinPageProps) {
   if (user.role === "patient") {
     redirect("/patient/care-circle");
   }
-
-  const activityHref =
-    user.role === "caregiver" ? "/caregiver/monitoring" : "/family/updates";
 
   return (
     <div className="min-h-screen bg-[#Eef1f4] pb-32 font-sans">
