@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Bell,
   CalendarDays,
+  ChevronRight,
   MapPin,
   Pill,
   Stethoscope,
@@ -268,6 +269,10 @@ export function CaregiverHomeDashboard(props: {
     role === "caregiver" ? "/caregiver/dashboard" : "/family/dashboard";
   const profilePath = role === "caregiver" ? "/caregiver/profile" : "/family/profile";
   const joinPath = role === "caregiver" ? "/caregiver/join" : "/caregiver/join";
+  const medicationsBasePath =
+    role === "caregiver" ? "/caregiver/medications" : "/family/medications";
+  const activitiesBasePath =
+    role === "caregiver" ? "/caregiver/wellness" : "/family/updates";
   const [message, setMessage] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<"alert" | "appointment" | null>(null);
   const [selectedMedication, setSelectedMedication] = useState<MedicationRecord | null>(null);
@@ -722,6 +727,18 @@ export function CaregiverHomeDashboard(props: {
                   </div>
                 ))}
               </div>
+              <Link
+                href={
+                  selectedPatientId
+                    ? `${medicationsBasePath}?patientId=${selectedPatientId}`
+                    : medicationsBasePath
+                }
+                className="mt-1 inline-flex items-center justify-center gap-1 rounded-full border border-[#2F3E34]/20 bg-white px-3 py-1.5 text-[12px] font-semibold text-[#2F3E34] transition-colors hover:border-[#2F3E34]/60 hover:bg-[#F6F7F2]"
+                aria-label="View medication details"
+              >
+                View details
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
 
             <div className="pd-card flex h-full flex-col gap-2 p-4">
@@ -742,6 +759,18 @@ export function CaregiverHomeDashboard(props: {
               <div className="flex flex-1 flex-col" style={{ minHeight: 0 }}>
                 <ActivityBarChart summary={selectedPatient.activitySummary} />
               </div>
+              <Link
+                href={
+                  selectedPatientId
+                    ? `${activitiesBasePath}?patientId=${selectedPatientId}`
+                    : activitiesBasePath
+                }
+                className="mt-1 inline-flex items-center justify-center gap-1 rounded-full border border-[#2F3E34]/20 bg-white px-3 py-1.5 text-[12px] font-semibold text-[#2F3E34] transition-colors hover:border-[#2F3E34]/60 hover:bg-[#F6F7F2]"
+                aria-label="View activity details"
+              >
+                View details
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
           </div>
         </div>
