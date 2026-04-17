@@ -16,6 +16,7 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
       clientRef?: string | null;
+      localDate?: string | null;
       medicationId?: string;
       notes?: string | null;
       patientUserId?: string | null;
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
 
     const logId = await recordMedicationLog({
       clientRef: body.clientRef,
+      localDate: body.localDate,
       medicationId: body.medicationId ?? "",
       notes: body.notes,
       patientUserId: scope.patientUserId,

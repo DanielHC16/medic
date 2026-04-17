@@ -82,6 +82,7 @@ export type MedicationRecord = {
   dosageValue: string;
   form: string;
   id: string;
+  imageDataUrl: string | null;
   instructions: string | null;
   isActive: boolean;
   latestLogStatus: MedicationLogStatus | null;
@@ -97,6 +98,7 @@ export type MedicationRecord = {
 export type MedicationLogRecord = {
   createdAt: string;
   id: string;
+  loggedForDate: string | null;
   medicationId: string;
   medicationName: string;
   notes: string | null;
@@ -192,6 +194,7 @@ export type CareMemberDashboardData = {
 
 export type SyncPushOperation = {
   clientRef: string;
+  localDate?: string | null;
   medicationId: string;
   notes?: string;
   scheduleId?: string | null;

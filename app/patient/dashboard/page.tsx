@@ -1,12 +1,17 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getPatientDashboardData } from "@/lib/db/medic-data";
-import { formatDateTime } from "@/lib/display";
+import { MedicationReminderPanel } from "@/components/medication-reminder-panel";
+import { getPatientDashboardData, listMedicationLogsForPatient } from "@/lib/db/medic-data";
+import { formatDateTime, formatTimeList } from "@/lib/display";
+import { getNextReminderSlot } from "@/lib/medication-reminders";
 import { requireRole } from "@/lib/auth/dal";
 
 export default async function PatientDashboardPage() {
   const user = await requireRole("patient");
-  const dashboard = await getPatientDashboardData(user.userId);
+  const [dashboard, medicationLogs] = await Promise.all([
+    getPatientDashboardData(user.userId),
+    listMedicationLogsForPatient(user.userId, 12),
+  ]);
 
   if (!dashboard) {
     return null;
@@ -21,7 +26,32 @@ export default async function PatientDashboardPage() {
   }).toUpperCase();
 
   // Get next medication and appointment for the display cards
-  const nextMedication = dashboard.medications[0];
+  const nextMedicationEntry =
+    dashboard.medications
+      .filter((item) => item.isActive)
+      .map((item) => ({
+        item,
+        nextSlot: getNextReminderSlot(item, medicationLogs, today),
+      }))
+      .filter(
+        (
+          entry,
+        ): entry is {
+          item: (typeof dashboard.medications)[number];
+          nextSlot: Date;
+        } => entry.nextSlot instanceof Date,
+      )
+      .sort((left, right) => left.nextSlot.getTime() - right.nextSlot.getTime())[0] ?? null;
+  const nextMedication = nextMedicationEntry?.item ?? dashboard.medications[0] ?? null;
+  const nextMedicationTimeLabel = nextMedicationEntry
+    ? new Intl.DateTimeFormat("en-PH", {
+        hour: "numeric",
+        hour12: user.preferences.timeFormat !== "24h",
+        minute: "2-digit",
+      }).format(nextMedicationEntry.nextSlot)
+    : nextMedication
+      ? formatTimeList(nextMedication.scheduleTimes)
+      : "Not scheduled";
   const nextAppointment = dashboard.appointments[0];
 
   return (
@@ -69,18 +99,31 @@ export default async function PatientDashboardPage() {
           <div>
             <h2 className="text-[16px] font-bold text-[#1A231D] mb-1">Next Medication:</h2>
             <p className="text-sm text-[#73847B]">
-              {nextMedication ? `${nextMedication.name} - In 2 Hours` : "No medications today"}
+              {nextMedication
+                ? `${nextMedication.name} is the next scheduled dose`
+                : "No medications scheduled today"}
             </p>
           </div>
           {nextMedication && (
             <div className="flex items-center gap-2 text-[#1A231D]">
               <span className="text-[15px] font-semibold">
-                {nextMedication.scheduleTimes[0] || "9:00 AM"}
+                {nextMedicationTimeLabel}
               </span>
               <BellIcon className="w-5 h-5" />
             </div>
           )}
         </div>
+
+        <MedicationReminderPanel
+          contactMethod={user.preferences.preferredContactMethod}
+          logs={medicationLogs}
+          medications={dashboard.medications}
+          patientDisplayName={`${user.firstName} ${user.lastName}`}
+          patientUserId={user.userId}
+          role={user.role}
+          timeFormat={user.preferences.timeFormat}
+          viewerDisplayName={`${user.firstName} ${user.lastName}`}
+        />
 
         {/* AI Recommendation Card */}
         <div className="bg-[#FAFBF9] rounded-[24px] p-5 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">

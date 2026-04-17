@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { CareAccessStatusPanel } from "@/components/care-access-status-panel";
+import { MedicationReminderPanel } from "@/components/medication-reminder-panel";
 import { formatDateTime } from "@/lib/display";
 import { requireRole } from "@/lib/auth/dal";
 import {
@@ -98,6 +99,17 @@ export default async function FamilyUpdatesPage({
                 value={String(activitySummary.completedToday)}
               />
             </section>
+
+            <MedicationReminderPanel
+              contactMethod={user.preferences.preferredContactMethod}
+              logs={medicationLogs}
+              medications={selectedPatient.medications}
+              patientDisplayName={`${selectedPatient.user.firstName} ${selectedPatient.user.lastName}`}
+              patientUserId={selectedPatientId}
+              role={user.role}
+              timeFormat={user.preferences.timeFormat}
+              viewerDisplayName={`${user.firstName} ${user.lastName}`}
+            />
 
             <section className="grid gap-6 lg:grid-cols-2">
               <article className="rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">

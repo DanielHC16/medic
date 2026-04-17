@@ -84,6 +84,7 @@ type MedicationRow = {
   dosage_value: string;
   form: string;
   id: string;
+  image_data_url: string | null;
   instructions: string | null;
   is_active: boolean;
   latest_log_status: MedicationLogStatus | null;
@@ -113,6 +114,7 @@ type ActivityRow = {
 type MedicationLogRow = {
   created_at: string;
   id: string;
+  logged_for_date: string | null;
   medication_id: string;
   medication_name: string;
   notes: string | null;
@@ -789,6 +791,7 @@ const schemaStatements = [
     form text not null,
     dosage_value text not null,
     dosage_unit text,
+    image_data_url text,
     instructions text,
     is_active boolean not null default true,
     created_at timestamptz not null default now(),
@@ -814,6 +817,7 @@ const schemaStatements = [
     patient_user_id text not null references users(id) on delete cascade,
     recorded_by_user_id text not null references users(id) on delete cascade,
     client_ref text unique,
+    logged_for_date date,
     scheduled_for timestamptz,
     taken_at timestamptz,
     status text not null,
@@ -823,6 +827,11 @@ const schemaStatements = [
     constraint medication_logs_status_check
       check (status in ('taken', 'missed', 'skipped', 'queued_offline'))
   )`,
+  `alter table medications add column if not exists image_data_url text`,
+  `alter table medication_logs add column if not exists logged_for_date date`,
+  `update medication_logs
+   set logged_for_date = coalesce(logged_for_date, coalesce(taken_at, scheduled_for, created_at)::date)
+   where logged_for_date is null`,
   `create table if not exists activity_plans (
     id text primary key,
     patient_user_id text not null references users(id) on delete cascade,
@@ -888,6 +897,7 @@ const indexStatements = [
   `create index if not exists medications_patient_idx on medications(patient_user_id)`,
   `create index if not exists medication_schedules_patient_idx on medication_schedules(patient_user_id)`,
   `create index if not exists medication_logs_patient_idx on medication_logs(patient_user_id)`,
+  `create index if not exists medication_logs_logged_for_date_idx on medication_logs(logged_for_date)`,
   `create index if not exists medication_logs_taken_at_idx on medication_logs(taken_at)`,
   `create index if not exists activity_plans_patient_idx on activity_plans(patient_user_id)`,
   `create index if not exists activity_logs_patient_idx on activity_logs(patient_user_id)`,
@@ -942,6 +952,7 @@ function mapMedicationRow(row: MedicationRow): MedicationRecord {
     dosageValue: row.dosage_value,
     form: row.form,
     id: row.id,
+    imageDataUrl: row.image_data_url,
     instructions: row.instructions,
     isActive: row.is_active,
     latestLogStatus: row.latest_log_status,
@@ -987,6 +998,7 @@ function mapMedicationLogRow(row: MedicationLogRow): MedicationLogRecord {
   return {
     createdAt: row.created_at,
     id: row.id,
+    loggedForDate: row.logged_for_date,
     medicationId: row.medication_id,
     medicationName: row.medication_name,
     notes: row.notes,
@@ -1012,9 +1024,35 @@ function mapActivityLogRow(row: ActivityLogRow): ActivityLogRecord {
   };
 }
 
-async function queryMany<T>(query: string, params: unknown[] = []) {
+let schemaReady = false;
+let schemaReadyPromise: Promise<void> | null = null;
+
+async function rawQuery<T>(query: string, params: unknown[] = []) {
   const sql = getSql();
   return (await sql.query(query, params)) as T[];
+}
+
+async function ensureMedicSchemaReady() {
+  if (schemaReady) {
+    return;
+  }
+
+  if (!schemaReadyPromise) {
+    schemaReadyPromise = (async () => {
+      await ensureMedicSchema();
+      schemaReady = true;
+    })().catch((error) => {
+      schemaReadyPromise = null;
+      throw error;
+    });
+  }
+
+  await schemaReadyPromise;
+}
+
+async function queryMany<T>(query: string, params: unknown[] = []) {
+  await ensureMedicSchemaReady();
+  return rawQuery<T>(query, params);
 }
 
 async function queryOne<T>(query: string, params: unknown[] = []) {
@@ -1042,7 +1080,7 @@ async function ensureReferenceRoles() {
   ] as const;
 
   for (const role of roleStatements) {
-    await queryMany(
+    await rawQuery(
       `insert into roles (id, slug, label)
        values ($1, $2, $3)
        on conflict (id) do update
@@ -1068,14 +1106,16 @@ function roleToRoleId(role: RoleSlug) {
 
 export async function ensureMedicSchema() {
   for (const statement of schemaStatements) {
-    await queryMany(statement);
+    await rawQuery(statement);
   }
 
   for (const statement of indexStatements) {
-    await queryMany(statement);
+    await rawQuery(statement);
   }
 
   await ensureReferenceRoles();
+  schemaReady = true;
+  schemaReadyPromise = Promise.resolve();
 }
 
 async function seedDemoUsers() {
@@ -2319,6 +2359,7 @@ export async function createMedicationWithSchedule(input: {
   dosageValue: string;
   form: string;
   frequencyType: string;
+  imageDataUrl?: string | null;
   instructions?: string | null;
   name: string;
   patientUserId: string;
@@ -2336,10 +2377,11 @@ export async function createMedicationWithSchedule(input: {
        form,
        dosage_value,
        dosage_unit,
+       image_data_url,
        instructions,
        is_active
      )
-     values ($1, $2, $3, $4, $5, $6, $7, $8, true)`,
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, true)`,
     [
       medicationId,
       input.patientUserId,
@@ -2348,6 +2390,7 @@ export async function createMedicationWithSchedule(input: {
       input.form.trim(),
       input.dosageValue.trim(),
       input.dosageUnit?.trim() || null,
+      input.imageDataUrl || null,
       input.instructions?.trim() || null,
     ],
   );
@@ -2389,6 +2432,7 @@ export async function listMedicationsForPatient(
        medications.form,
        medications.dosage_value,
        medications.dosage_unit,
+       medications.image_data_url,
        medications.instructions,
        medications.is_active,
        trim(created_by_user.first_name || ' ' || created_by_user.last_name) as created_by_display_name,
@@ -2424,10 +2468,12 @@ async function getMedicationOwnership(input: {
   return queryOne<{
     medication_id: string;
     schedule_id: string | null;
+    schedule_times: string[] | null;
   }>(
     `select
        medications.id as medication_id,
-       medication_schedules.id as schedule_id
+       medication_schedules.id as schedule_id,
+       medication_schedules.times_of_day as schedule_times
      from medications
      left join medication_schedules on medication_schedules.medication_id = medications.id
      where medications.id = $1 and medications.patient_user_id = $2`,
@@ -2441,6 +2487,7 @@ export async function updateMedicationWithSchedule(input: {
   dosageValue: string;
   form: string;
   frequencyType: string;
+  imageDataUrl?: string | null;
   instructions?: string | null;
   medicationId: string;
   name: string;
@@ -2462,14 +2509,16 @@ export async function updateMedicationWithSchedule(input: {
          form = $2,
          dosage_value = $3,
          dosage_unit = $4,
-         instructions = $5,
+         image_data_url = $5,
+         instructions = $6,
          updated_at = now()
-     where id = $6 and patient_user_id = $7`,
+     where id = $7 and patient_user_id = $8`,
     [
       input.name.trim(),
       input.form.trim(),
       input.dosageValue.trim(),
       input.dosageUnit?.trim() || null,
+      input.imageDataUrl || null,
       input.instructions?.trim() || null,
       input.medicationId,
       input.patientUserId,
@@ -2553,6 +2602,7 @@ export async function listMedicationLogsForPatient(
        medication_logs.id,
        medication_logs.medication_id,
        medications.name as medication_name,
+       medication_logs.logged_for_date::text,
        medication_logs.scheduled_for::text,
        medication_logs.taken_at::text,
        medication_logs.status,
@@ -2590,32 +2640,51 @@ export async function getMedicationAdherenceSummary(
        (select count(*)::int
         from medications
         where patient_user_id = $1 and is_active = true) as active_medications,
-       (select count(*)::int
+       (select coalesce(
+          sum(coalesce(array_length(medication_schedules.times_of_day, 1), 1)),
+          0
+        )::int
         from medication_schedules
         join medications on medications.id = medication_schedules.medication_id
         where medication_schedules.patient_user_id = $1
           and medications.is_active = true
           and (medication_schedules.start_date is null or medication_schedules.start_date <= current_date)
-          and (medication_schedules.end_date is null or medication_schedules.end_date >= current_date)) as due_today,
+          and (medication_schedules.end_date is null or medication_schedules.end_date >= current_date)
+          and (
+            coalesce(cardinality(medication_schedules.days_of_week), 0) = 0
+            or trim(to_char(current_date, 'Dy')) = any(medication_schedules.days_of_week)
+          )) as due_today,
        (select count(*)::int
         from medication_logs
         where patient_user_id = $1
-          and coalesce(taken_at, scheduled_for, created_at)::date = current_date) as logged_today,
+          and coalesce(
+            medication_logs.logged_for_date,
+            coalesce(taken_at, scheduled_for, created_at)::date
+          ) = current_date) as logged_today,
        (select count(*)::int
         from medication_logs
         where patient_user_id = $1
           and status = 'taken'
-          and coalesce(taken_at, scheduled_for, created_at)::date = current_date) as taken_today,
+          and coalesce(
+            medication_logs.logged_for_date,
+            coalesce(taken_at, scheduled_for, created_at)::date
+          ) = current_date) as taken_today,
        (select count(*)::int
         from medication_logs
         where patient_user_id = $1
           and status = 'missed'
-          and coalesce(taken_at, scheduled_for, created_at)::date = current_date) as missed_today,
+          and coalesce(
+            medication_logs.logged_for_date,
+            coalesce(taken_at, scheduled_for, created_at)::date
+          ) = current_date) as missed_today,
        (select count(*)::int
         from medication_logs
         where patient_user_id = $1
           and status = 'skipped'
-          and coalesce(taken_at, scheduled_for, created_at)::date = current_date) as skipped_today`,
+          and coalesce(
+            medication_logs.logged_for_date,
+            coalesce(taken_at, scheduled_for, created_at)::date
+          ) = current_date) as skipped_today`,
     [patientUserId],
   );
 
@@ -2631,6 +2700,7 @@ export async function getMedicationAdherenceSummary(
 
 export async function recordMedicationLog(input: {
   clientRef?: string | null;
+  localDate?: string | null;
   medicationId: string;
   notes?: string | null;
   patientUserId: string;
@@ -2661,6 +2731,29 @@ export async function recordMedicationLog(input: {
     return existing.id;
   }
 
+  const loggedForDate = input.localDate?.trim() || new Date().toISOString().slice(0, 10);
+  const maxTakenEntriesForDay = Math.max(ownership.schedule_times?.length ?? 0, 1);
+
+  if (input.status === "taken") {
+    const takenCountForDate = await queryOne<{ total: number }>(
+      `select count(*)::int as total
+       from medication_logs
+       where medication_id = $1
+         and patient_user_id = $2
+         and status = 'taken'
+         and logged_for_date = $3::date`,
+      [input.medicationId, input.patientUserId, loggedForDate],
+    );
+
+    if ((takenCountForDate?.total ?? 0) >= maxTakenEntriesForDay) {
+      throw new Error(
+        maxTakenEntriesForDay === 1
+          ? "This medication was already marked as taken for this date."
+          : "All scheduled doses for this medication were already marked as taken for this date.",
+      );
+    }
+  }
+
   const logId = createId("log");
 
   await queryMany(
@@ -2671,13 +2764,14 @@ export async function recordMedicationLog(input: {
        patient_user_id,
        recorded_by_user_id,
        client_ref,
+       logged_for_date,
        scheduled_for,
        taken_at,
        status,
        notes,
        source
      )
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
     [
       logId,
       input.medicationId,
@@ -2685,6 +2779,7 @@ export async function recordMedicationLog(input: {
       input.patientUserId,
       input.recordedByUserId,
       input.clientRef || null,
+      loggedForDate,
       input.scheduledFor || null,
       input.takenAt || null,
       input.status,
@@ -3082,13 +3177,20 @@ async function getMedicationCounts(patientUserId: string) {
       [patientUserId],
     ),
     queryOne<CountRow>(
-      `select count(*)::int as total
+      `select coalesce(
+         sum(coalesce(array_length(medication_schedules.times_of_day, 1), 1)),
+         0
+       )::int as total
        from medication_schedules
        join medications on medications.id = medication_schedules.medication_id
        where medication_schedules.patient_user_id = $1
          and medications.is_active = true
          and (medication_schedules.start_date is null or medication_schedules.start_date <= current_date)
-         and (medication_schedules.end_date is null or medication_schedules.end_date >= current_date)`,
+         and (medication_schedules.end_date is null or medication_schedules.end_date >= current_date)
+         and (
+           coalesce(cardinality(medication_schedules.days_of_week), 0) = 0
+           or trim(to_char(current_date, 'Dy')) = any(medication_schedules.days_of_week)
+         )`,
       [patientUserId],
     ),
     queryOne<CountRow>(
@@ -3096,7 +3198,10 @@ async function getMedicationCounts(patientUserId: string) {
        from medication_logs
        where patient_user_id = $1
          and status = 'taken'
-         and taken_at::date = current_date`,
+         and coalesce(
+           medication_logs.logged_for_date,
+           coalesce(taken_at, scheduled_for, created_at)::date
+         ) = current_date`,
       [patientUserId],
     ),
   ]);
@@ -3258,6 +3363,7 @@ export async function pushMedicationSyncOperations(input: {
   for (const operation of input.operations) {
     const appliedId = await recordMedicationLog({
       clientRef: operation.clientRef,
+      localDate: operation.localDate ?? null,
       medicationId: operation.medicationId,
       notes: operation.notes ?? null,
       patientUserId: input.patientUserId,

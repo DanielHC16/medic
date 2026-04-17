@@ -5,6 +5,7 @@ import {
 } from "@/lib/db/medic-data";
 import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import {
+  getOptionalImageDataUrl,
   getOptionalString,
   getRequiredString,
   getStringArray,
@@ -40,6 +41,7 @@ export async function PATCH(
       dosageValue: getRequiredString(body.dosageValue, "Dosage value"),
       form: getRequiredString(body.form, "Medication form"),
       frequencyType: getRequiredString(body.frequencyType, "Frequency"),
+      imageDataUrl: getOptionalImageDataUrl(body.imageDataUrl),
       instructions: getOptionalString(body.instructions),
       medicationId: id,
       name: getRequiredString(body.name, "Medication name"),

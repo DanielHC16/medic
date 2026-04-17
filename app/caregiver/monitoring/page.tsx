@@ -103,10 +103,15 @@ export default async function CaregiverMonitoringPage({
             <div className="space-y-6 rounded-[2.5rem] bg-white/40 p-2">
               <MedicationManager
                 canManage
+                contactMethod={user.preferences.preferredContactMethod}
                 items={selectedPatient.medications}
                 logs={medicationLogs}
+                patientDisplayName={`${selectedPatient.user.firstName} ${selectedPatient.user.lastName}`}
                 patientUserId={selectedPatientId}
+                role={user.role}
                 summary={medicationSummary}
+                timeFormat={user.preferences.timeFormat}
+                viewerDisplayName={`${user.firstName} ${user.lastName}`}
               />
               <WellnessManager
                 activityLogs={activityLogs}
