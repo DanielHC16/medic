@@ -59,10 +59,19 @@ export default async function CaregiverMonitoringPage({
                     key={patient.relationshipId}
                     href={`/caregiver/monitoring?patientId=${patient.patientUserId}`}
                     aria-current={isActive ? "page" : undefined}
-                    className={
+                    className="rounded-full border-2 px-4 py-2 text-sm font-semibold shadow-sm transition-colors"
+                    style={
                       isActive
-                        ? "rounded-full border border-[#2F3E34] bg-[#2F3E34] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors"
-                        : "rounded-full border border-[#2F3E34]/20 bg-white px-4 py-2 text-sm font-medium text-[#2F3E34] transition-colors hover:border-[#2F3E34]/60 hover:bg-[#F6F7F2]"
+                        ? {
+                            backgroundColor: "#2F3E34",
+                            borderColor: "#2F3E34",
+                            color: "#FFFFFF",
+                          }
+                        : {
+                            backgroundColor: "#F6F7F2",
+                            borderColor: "#2F3E34",
+                            color: "#2F3E34",
+                          }
                     }
                   >
                     {patient.patientDisplayName}
