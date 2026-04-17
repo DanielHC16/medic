@@ -21,6 +21,7 @@ export default async function PatientMedicationsPage() {
       user={user}
       title="Medication Reminder"
       description="Create medications, manage schedules, record taken or missed doses, and test the first offline sync layer."
+      patientBottomNavActive="medications"
       links={[
         { href: "/patient/dashboard", label: "Home" },
         { href: "/patient/schedule", label: "Schedule" },

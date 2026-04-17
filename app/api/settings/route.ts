@@ -24,6 +24,7 @@ export async function PATCH(request: Request) {
     const body = (await request.json()) as Record<string, unknown>;
 
     const updatedUser = await updateUserPreferences({
+      chatbotEnabled: getBooleanValue(body.chatbotEnabled, true),
       dailySummaryEnabled: getBooleanValue(body.dailySummaryEnabled, true),
       highContrastEnabled: getBooleanValue(body.highContrastEnabled),
       largeTextEnabled: getBooleanValue(body.largeTextEnabled),

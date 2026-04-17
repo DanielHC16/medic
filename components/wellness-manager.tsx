@@ -1,8 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type Dispatch, type FormEvent, type SetStateAction, useState } from "react";
+import {
+  type Dispatch,
+  type FormEvent,
+  type SetStateAction,
+  useRef,
+  useState,
+} from "react";
 
+import { WellnessAiPanel } from "@/components/wellness-ai-panel";
 import { formatDateTime, formatDayList, formatStatusLabel } from "@/lib/display";
 import type {
   ActivityLogRecord,
@@ -10,6 +17,7 @@ import type {
   ActivitySummary,
   AppointmentRecord,
 } from "@/lib/medic-types";
+import type { WellnessRoutineSuggestion } from "@/lib/wellness-ai-shared";
 
 type RoutineDraft = {
   category: string;
@@ -210,6 +218,19 @@ function buildRoutinePayload(draft: RoutineDraft) {
     instructions: draft.instructions.trim() || null,
     targetMinutes: targetMinutes || null,
     title,
+  };
+}
+
+function createRoutineDraftFromSuggestion(
+  routine: WellnessRoutineSuggestion,
+): RoutineDraft {
+  return {
+    category: routine.category,
+    daysOfWeek: [...routine.daysOfWeek],
+    frequencyType: routine.frequencyType,
+    instructions: routine.instructions,
+    targetMinutes: routine.targetMinutes ? String(routine.targetMinutes) : "",
+    title: routine.title,
   };
 }
 
@@ -787,6 +808,7 @@ export function WellnessManager({
   const [createRoutineDraftState, setCreateRoutineDraftState] = useState<RoutineDraft>(() =>
     createRoutineDraft(),
   );
+  const createRoutineSectionRef = useRef<HTMLElement | null>(null);
   const [createAppointmentDraftState, setCreateAppointmentDraftState] =
     useState<AppointmentDraft>(() => createAppointmentDraft());
   const [routineDraft, setRoutineDraft] = useState<RoutineDraft>(() => createRoutineDraft());
@@ -842,6 +864,34 @@ export function WellnessManager({
       setMessage(
         error instanceof Error ? error.message : "Unable to create activity plan.",
       );
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function applyAiRoutine(routine: WellnessRoutineSuggestion) {
+    setPending(true);
+    setMessage(null);
+
+    try {
+      await runRequest(
+        "/api/activities",
+        "POST",
+        {
+          ...buildRoutinePayload(createRoutineDraftFromSuggestion(routine)),
+          patientUserId,
+        },
+        "Unable to create activity plan.",
+      );
+
+      setCreateRoutineDraftState(createRoutineDraft());
+      setMessage("AI routine added.");
+      router.refresh();
+    } catch (error) {
+      const resolvedMessage =
+        error instanceof Error ? error.message : "Unable to create activity plan.";
+      setMessage(resolvedMessage);
+      throw error;
     } finally {
       setPending(false);
     }
@@ -1006,6 +1056,26 @@ export function WellnessManager({
           <MetricCard label="Missed today" value={String(activitySummary.missedToday)} />
         </section>
       ) : null}
+
+      <WellnessAiPanel
+        canManage={canManage}
+        onApplyRoutine={applyAiRoutine}
+        onLoadRoutineDraft={(routine) => {
+          setCreateRoutineDraftState(createRoutineDraftFromSuggestion(routine));
+          requestAnimationFrame(() => {
+            const section = createRoutineSectionRef.current;
+
+            if (section && typeof section.scrollIntoView === "function") {
+              section.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            }
+          });
+        }}
+        onNotice={(nextMessage) => setMessage(nextMessage)}
+        patientUserId={patientUserId}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-[2rem] border border-black/5 bg-white/90 p-6 shadow-sm">
@@ -1220,7 +1290,10 @@ export function WellnessManager({
 
       {canManage ? (
         <div className="grid gap-6 lg:grid-cols-2">
-          <section className="rounded-[2rem] border border-black/5 bg-white/90 p-6 shadow-sm">
+          <section
+            ref={createRoutineSectionRef}
+            className="rounded-[2rem] border border-black/5 bg-white/90 p-6 shadow-sm"
+          >
             <h2 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
               Add routine
             </h2>

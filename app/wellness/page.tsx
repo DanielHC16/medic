@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { type LucideIcon, Home, Activity, UserPlus, Heart, User } from "lucide-react";
 
+import { PatientBottomNav } from "@/components/patient-bottom-nav";
 import { WellnessManager } from "@/components/wellness-manager";
 import {
   canManagePatientData,
@@ -92,43 +93,37 @@ export default async function WellnessPage({ searchParams }: WellnessPageProps) 
         )}
       </main>
 
-      {/* --- BOTTOM NAVIGATION BAR --- */}
-      <nav className="fixed bottom-0 left-0 right-0 z-[100] flex items-center justify-around rounded-t-[2.5rem] bg-white px-4 py-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t border-gray-100">
-        {/* Home */}
-        <NavIcon 
-          href={dashboardHref}
-          icon={Home} 
-          isActive={false} 
-        />
-        
-        {/* Role workspace */}
-        <NavIcon 
-          href={secondaryHref}
-          icon={Activity} 
-          isActive={false} 
-        />
-
-        {/* Join / Care circle */}
-        <NavIcon 
-          href={tertiaryHref}
-          icon={UserPlus} 
-          isActive={false} 
-        />
-
-        {/* Wellness - ACTIVE */}
-        <NavIcon 
-          href="/wellness" 
-          icon={Heart} 
-          isActive={true} 
-        />
-
-        {/* Profile */}
-        <NavIcon 
-          href={profileHref}
-          icon={User} 
-          isActive={false} 
-        />
-      </nav>
+      {userRole === "patient" ? (
+        <PatientBottomNav activeItem="wellness" />
+      ) : (
+        <nav className="fixed bottom-0 left-0 right-0 z-[100] flex items-center justify-around rounded-t-[2.5rem] bg-white px-4 py-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t border-gray-100">
+          <NavIcon
+            href={dashboardHref}
+            icon={Home}
+            isActive={false}
+          />
+          <NavIcon
+            href={secondaryHref}
+            icon={Activity}
+            isActive={false}
+          />
+          <NavIcon
+            href={tertiaryHref}
+            icon={UserPlus}
+            isActive={false}
+          />
+          <NavIcon
+            href="/wellness"
+            icon={Heart}
+            isActive={true}
+          />
+          <NavIcon
+            href={profileHref}
+            icon={User}
+            isActive={false}
+          />
+        </nav>
+      )}
     </div>
   );
 }

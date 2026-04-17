@@ -1,3 +1,11 @@
+function normalizeEnvironmentValue(value: string | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  return value.trim().replace(/^['"]+|['"]+$/g, "");
+}
+
 export function getDatabaseUrl() {
   const connectionString =
     process.env.DATABASE_URL ??
@@ -13,9 +21,29 @@ export function getDatabaseUrl() {
   return connectionString;
 }
 
+export function getGeminiApiKey() {
+  const apiKey = normalizeEnvironmentValue(
+    process.env.API_KEY ?? process.env.GEMINI_API_KEY,
+  );
+
+  if (!apiKey) {
+    throw new Error(
+      "Missing Gemini API key. Expected API_KEY or GEMINI_API_KEY in the environment.",
+    );
+  }
+
+  return apiKey;
+}
+
+export function getGeminiModel() {
+  return process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+}
+
 export function getEnvironmentSummary() {
   return {
     hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
+    hasGeminiApiKey: Boolean(process.env.API_KEY ?? process.env.GEMINI_API_KEY),
+    geminiModel: getGeminiModel(),
     hasPostgresUrl: Boolean(process.env.POSTGRES_URL),
     hasNeonProjectId: Boolean(process.env.NEON_PROJECT_ID),
     hasNeonAuthBaseUrl: Boolean(process.env.NEON_AUTH_BASE_URL),

@@ -1,19 +1,40 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { User, ChevronLeft } from "lucide-react";
+
+type SavedProfile = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  profileImageDataUrl: string | null;
+};
 
 interface Props {
   initialName: string;
   initialEmail: string;
   initialPhone: string;
+  initialProfileImageDataUrl?: string | null;
   onClose: () => void;
+  onSaved?: (user: SavedProfile) => void;
 }
 
-export function ProfileEditModal({ initialName, initialEmail, initialPhone, onClose }: Props) {
+export function ProfileEditModal({
+  initialName,
+  initialEmail,
+  initialPhone,
+  initialProfileImageDataUrl = null,
+  onClose,
+  onSaved,
+}: Props) {
   const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
   const [phone, setPhone] = useState(initialPhone);
+  const [profileImageDataUrl, setProfileImageDataUrl] = useState<string | null>(
+    initialProfileImageDataUrl,
+  );
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [saving, setSaving] = useState(false);
@@ -31,14 +52,21 @@ export function ProfileEditModal({ initialName, initialEmail, initialPhone, onCl
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          email,
           firstName: name.split(" ")[0] ?? name,
           lastName: name.split(" ").slice(1).join(" ") || undefined,
           phone: phone || undefined,
+          profileImageDataUrl,
           ...(password ? { password } : {}),
         }),
       });
-      const json = res.ok ? await res.json() : { ok: false, message: "Server error." };
+      const json = res.ok
+        ? ((await res.json()) as { ok: boolean; message?: string; user?: SavedProfile })
+        : { ok: false, message: "Server error." };
       if (!res.ok || !json.ok) throw new Error(json.message || "Failed to save.");
+      if (json.user) {
+        onSaved?.(json.user);
+      }
       setMessage("Profile updated.");
       setTimeout(onClose, 800);
     } catch (err) {
@@ -66,11 +94,57 @@ export function ProfileEditModal({ initialName, initialEmail, initialPhone, onCl
       {/* Avatar */}
       <div className="flex flex-col items-center gap-2 mb-6">
         <div className="w-20 h-20 rounded-full border-2 border-[#2F3E34] bg-[#E5E7EB] flex items-center justify-center">
-          <User className="w-10 h-10 text-[#2F3E34]" />
+          {profileImageDataUrl ? (
+            <Image
+              src={profileImageDataUrl}
+              alt="Profile preview"
+              width={80}
+              height={80}
+              className="h-full w-full rounded-full object-cover"
+              unoptimized
+            />
+          ) : (
+            <User className="w-10 h-10 text-[#2F3E34]" />
+          )}
         </div>
-        <button className="text-[13px] underline opacity-70 hover:opacity-100 transition">
+        <label className="text-[13px] underline opacity-70 hover:opacity-100 transition cursor-pointer">
           Edit Profile Picture
-        </button>
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={async (event) => {
+              const file = event.target.files?.[0];
+
+              if (!file) {
+                return;
+              }
+
+              try {
+                const nextImage = await readFileAsDataUrl(file);
+                setProfileImageDataUrl(nextImage);
+                setMessage(null);
+              } catch (error) {
+                setMessage(
+                  error instanceof Error
+                    ? error.message
+                    : "Unable to read the selected profile photo.",
+                );
+              } finally {
+                event.target.value = "";
+              }
+            }}
+          />
+        </label>
+        {profileImageDataUrl ? (
+          <button
+            type="button"
+            onClick={() => setProfileImageDataUrl(null)}
+            className="text-[12px] font-semibold opacity-60 hover:opacity-100 transition"
+          >
+            Remove picture
+          </button>
+        ) : null}
       </div>
 
       {/* Form */}
@@ -146,4 +220,21 @@ export function ProfileEditModal({ initialName, initialEmail, initialPhone, onCl
       </div>
     </div>
   );
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("Unable to read the selected profile photo."));
+    };
+    reader.onerror = () => reject(new Error("Unable to read the selected profile photo."));
+    reader.readAsDataURL(file);
+  });
 }

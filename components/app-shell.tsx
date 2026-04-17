@@ -3,6 +3,10 @@ import type { ReactNode } from "react";
 
 import type { AuthenticatedUser } from "@/lib/medic-types";
 import { LogoutButton } from "@/components/logout-button";
+import {
+  type PatientBottomNavItem,
+  PatientBottomNav,
+} from "@/components/patient-bottom-nav";
 
 type AppShellProps = {
   actions?: ReactNode;
@@ -12,6 +16,7 @@ type AppShellProps = {
     href: string;
     label: string;
   }>;
+  patientBottomNavActive?: PatientBottomNavItem | null;
   title: string;
   user: AuthenticatedUser;
 };
@@ -21,11 +26,18 @@ export function AppShell({
   children,
   description,
   links = [],
+  patientBottomNavActive,
   title,
   user,
 }: AppShellProps) {
+  const showPatientBottomNav = user.role === "patient" && patientBottomNavActive !== undefined;
+
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-6 py-10">
+    <main
+      className={`mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-6 py-10 ${
+        showPatientBottomNav ? "pb-36" : ""
+      }`}
+    >
       <section className="rounded-[2rem] border border-black/5 bg-white/90 p-8 shadow-sm">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -62,6 +74,9 @@ export function AppShell({
         </div>
       </section>
       {children}
+      {showPatientBottomNav ? (
+        <PatientBottomNav activeItem={patientBottomNavActive} />
+      ) : null}
     </main>
   );
 }
