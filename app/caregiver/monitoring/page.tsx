@@ -52,15 +52,23 @@ export default async function CaregiverMonitoringPage({
           <section className="mb-6 rounded-[2rem] border border-black/5 bg-white/90 p-6 shadow-sm">
             <h2 className="text-xl font-semibold tracking-tight text-gray-900">Patient switcher</h2>
             <div className="mt-4 flex flex-wrap gap-3">
-              {dashboard.activeLinkedPatients.map((patient) => (
-                <Link
-                  key={patient.relationshipId}
-                  href={`/caregiver/monitoring?patientId=${patient.patientUserId}`}
-                  className="rounded-full bg-[#Eef1f4] px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
-                >
-                  {patient.patientDisplayName} / {patient.relationshipStatus}
-                </Link>
-              ))}
+              {dashboard.activeLinkedPatients.map((patient) => {
+                const isActive = patient.patientUserId === selectedPatientId;
+                return (
+                  <Link
+                    key={patient.relationshipId}
+                    href={`/caregiver/monitoring?patientId=${patient.patientUserId}`}
+                    aria-current={isActive ? "page" : undefined}
+                    className={
+                      isActive
+                        ? "rounded-full border border-[#2F3E34] bg-[#2F3E34] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors"
+                        : "rounded-full border border-[#2F3E34]/20 bg-white px-4 py-2 text-sm font-medium text-[#2F3E34] transition-colors hover:border-[#2F3E34]/60 hover:bg-[#F6F7F2]"
+                    }
+                  >
+                    {patient.patientDisplayName}
+                  </Link>
+                );
+              })}
             </div>
           </section>
         )}
