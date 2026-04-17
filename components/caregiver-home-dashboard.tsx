@@ -270,7 +270,7 @@ export function CaregiverHomeDashboard(props: {
   const dashboardBasePath =
     role === "caregiver" ? "/caregiver/dashboard" : "/family/dashboard";
   const profilePath = role === "caregiver" ? "/caregiver/profile" : "/family/profile";
-  const joinPath = role === "caregiver" ? "/caregiver/join" : "/caregiver/join";
+  const joinPath = role === "caregiver" ? "/caregiver/join" : "/family/join";
   const medicationsBasePath =
     role === "caregiver" ? "/caregiver/medications" : "/family/medications";
   const activitiesBasePath =

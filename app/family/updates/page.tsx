@@ -159,7 +159,7 @@ export default async function FamilyUpdatesPage({ searchParams }: FamilyUpdatesP
           <p className="text-sm leading-6 text-gray-500">
             No active linked patient. Join a patient first to view updates.
           </p>
-          <Link href="/caregiver/join" className="medic-button medic-button-primary mt-4">
+          <Link href="/family/join" className="medic-button medic-button-primary mt-4">
             Connect to a patient
           </Link>
         </div>
