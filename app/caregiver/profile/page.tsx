@@ -1,128 +1,82 @@
-import Link from "next/link";
-import { type LucideIcon, Home, Activity, UserPlus, Heart, User } from "lucide-react";
+"use client";
 
-import { ProfilePageContent } from "@/components/profile-page-content";
-import { requireRole } from "@/lib/auth/dal";
-import { listLinkedPatientsForMember } from "@/lib/db/medic-data";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { House, Clock, Heart, User, QrCode, ChevronDown } from "lucide-react";
+import { ProfileEditModal } from "@/components/profile-edit-modal";
 import { LogoutButton } from "@/components/logout-button";
 
-export default async function CaregiverProfilePage() {
-  const user = await requireRole("caregiver");
-  const records = (await listLinkedPatientsForMember(user.userId)).filter(
-    (item) => item.relationshipStatus !== "revoked",
-  );
+export default function CaregiverProfilePage() {
+  const [user, setUser] = useState<{ firstName: string; lastName: string; email: string; phone: string | null } | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/profile").then((r) => r.ok ? r.json() : null).then((j) => j && setUser(j?.user ?? j)).catch(() => {});
+  }, []);
+
+  const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : "User";
 
   return (
-    <div className="min-h-screen bg-[#Eef1f4] pb-32 font-sans">
-      <main className="px-6 pt-10">
-        {/* --- PROFILE HEADER --- */}
-        <section className="mb-6 rounded-[2.5rem] bg-white p-8 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#5C8B6B]">
-            Medic
-          </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
-            Caregiver Profile
-          </h1>
-          <p className="mt-3 text-sm leading-relaxed text-gray-500">
-            Update your caregiver account details and review which patient records are currently linked.
-          </p>
-        </section>
-
-        {/* --- PROFILE CONTENT --- */}
-        <div className="rounded-[2.5rem] bg-white p-6 shadow-sm border border-black/5">
-          <ProfilePageContent
-            heading="Caregiver account"
-            records={records}
-            roleNotes={[
-              "Caregivers can manage medications, routines, and appointments for linked patients.",
-              "Use the Monitoring page for the detailed patient-by-patient work area.",
-            ]}
-            shortcuts={[
-              { href: "/caregiver/monitoring", label: "Open Monitoring" },
-              { href: "/join", label: "Join another patient" },
-            ]}
-            user={user}
-          />
-
-          {/* --- SIGN OUT SECTION --- */}
-          <div className="mt-8 border-t border-gray-100 pt-6">
-            <div className="flex w-full justify-center">
-               {/* Using your project's existing LogoutButton component */}
-               <LogoutButton />
-            </div>
-          </div>
-
+    <main className="pd-page flex flex-col">
+      <h1 className="pd-heading mb-6">Profile</h1>
+      <div className="flex flex-col items-center gap-3 mb-8">
+        <div className="w-20 h-20 rounded-full border-2 border-[#2F3E34] bg-[#E5E7EB] flex items-center justify-center">
+          <User className="w-10 h-10 text-[#2F3E34]" />
         </div>
-      </main>
+        <p className="text-[17px] font-bold">{fullName}</p>
+        <button
+          onClick={() => setEditOpen(true)}
+          className="flex items-center gap-2 px-6 py-2.5 rounded-full border border-[#2F3E34]/30 bg-[#F6F7F2] text-[13px] font-semibold opacity-70 hover:bg-[#E5E7EB] transition"
+        >
+          Edit Profile <ChevronDown className="w-4 h-4" />
+        </button>
+      </div>
 
-      {/* --- BOTTOM NAVIGATION BAR --- */}
-      <nav className="fixed bottom-0 left-0 right-0 z-[100] flex items-center justify-around rounded-t-[2.5rem] bg-white px-4 py-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t border-gray-100">
-        {/* Home */}
-        <NavIcon 
-          href="/caregiver/dashboard" 
-          icon={Home} 
-          isActive={false} 
-        />
-        
-        {/* Monitoring */}
-        <NavIcon 
-          href="/caregiver/monitoring" 
-          icon={Activity} 
-          isActive={false} 
-        />
+      {/* Options */}
+      <div className="mb-6">
+        <p className="text-[15px] font-bold mb-3">Options:</p>
+        <div className="flex flex-col gap-3">
+          <Link href="/join" className="pd-card p-4 flex items-center gap-4 hover:opacity-90 transition">
+            <div className="w-10 h-10 rounded-xl bg-[#2F3E34]/10 flex items-center justify-center flex-shrink-0">
+              <QrCode className="w-5 h-5 text-[#2F3E34]" />
+            </div>
+            <span className="text-[16px] font-bold">QR / Code</span>
+          </Link>
 
-        {/* Join */}
-        <NavIcon 
-          href="/join" 
-          icon={UserPlus} 
-          isActive={false} 
-        />
+          <Link href="/caregiver/dashboard" className="pd-card p-4 flex items-center gap-4 hover:opacity-90 transition">
+            <div className="w-10 h-10 rounded-xl bg-[#2F3E34]/10 flex items-center justify-center flex-shrink-0">
+              <User className="w-5 h-5 text-[#2F3E34]" />
+            </div>
+            <span className="text-[16px] font-bold">Patient Profiles</span>
+          </Link>
+        </div>
+      </div>
 
-        {/* Wellness */}
-        <NavIcon 
-          href="/wellness" 
-          icon={Heart} 
-          isActive={false} 
-        />
+      {/* Sign out */}
+      <div className="mt-auto pt-8 pb-4 flex justify-center">
+        <LogoutButton />
+      </div>
 
-        {/* Profile - ACTIVE */}
-        <NavIcon 
-          href="/caregiver/profile" 
-          icon={User} 
-          isActive={true} 
-        />
+      {/* Bottom Nav */}
+      <nav className="pd-nav">
+        <Link href="/caregiver/dashboard" className="pd-nav-link"><House className="w-7 h-7" /></Link>
+        <Link href="/caregiver/monitoring" className="pd-nav-link"><Clock className="w-7 h-7" /></Link>
+        <Link href="/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
+        <div className="pd-nav-active">
+          <Link href="/caregiver/profile" className="flex items-center justify-center w-full h-full">
+            <User className="w-8 h-8" />
+          </Link>
+        </div>
       </nav>
-    </div>
-  );
-}
 
-/**
- * Shared NavIcon Component
- */
-function NavIcon({
-  href,
-  icon: Icon,
-  isActive,
-}: {
-  href: string;
-  icon: LucideIcon;
-  isActive: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`relative flex h-14 w-14 items-center justify-center transition-all duration-300 ${
-        isActive 
-          ? "rounded-full bg-[#5C8B6B] shadow-lg scale-110" 
-          : "rounded-full bg-transparent hover:bg-gray-50"
-      }`}
-    >
-      <Icon 
-        size={24}
-        color={isActive ? "#FFFFFF" : "#5C8B6B"} 
-        strokeWidth={isActive ? 2.5 : 2}
-        className="block"
-      />
-    </Link>
+      {editOpen && user && (
+        <ProfileEditModal
+          initialName={fullName}
+          initialEmail={user.email}
+          initialPhone={user.phone ?? ""}
+          onClose={() => setEditOpen(false)}
+        />
+      )}
+    </main>
   );
 }
