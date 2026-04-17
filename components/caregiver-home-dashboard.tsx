@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
+  Activity,
   AlertTriangle,
   Bell,
   CalendarDays,
@@ -14,6 +15,7 @@ import {
   Stethoscope,
   Sun,
   UserRound,
+  X,
 } from "lucide-react";
 
 import { AppointmentViewModal } from "@/components/appointment-view-modal";
@@ -277,6 +279,9 @@ export function CaregiverHomeDashboard(props: {
   const [pendingAction, setPendingAction] = useState<"alert" | "appointment" | null>(null);
   const [selectedMedication, setSelectedMedication] = useState<MedicationRecord | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentRecord | null>(null);
+  const [progressDetail, setProgressDetail] = useState<
+    "medications" | "activities" | null
+  >(null);
 
   const nowManila = useMemo(() => getManilaNow(), []);
   const dateString = nowManila
@@ -308,6 +313,69 @@ export function CaregiverHomeDashboard(props: {
     medicationTotal - medicationTaken - medicationMissed,
     0,
   );
+
+  const medicationDetailRows = useMemo(() => {
+    if (!selectedPatient) return [];
+    const logs = selectedPatient.recentMedicationLogs.filter(
+      (log) => (log.loggedForDate || "") === todayKey,
+    );
+    return selectedPatient.medications
+      .filter((medication) => medication.isActive)
+      .map((medication) => {
+        const medLogs = logs.filter((log) => log.medicationId === medication.id);
+        const taken = medLogs.filter((log) => log.status === "taken").length;
+        const missed = medLogs.filter((log) => log.status === "missed").length;
+        const slots = Math.max(medication.scheduleTimes.length, 1);
+        const pending = Math.max(slots - taken - missed, 0);
+        const status: "taken" | "missed" | "pending" =
+          pending === 0 && missed === 0 && taken > 0
+            ? "taken"
+            : missed > 0
+              ? "missed"
+              : "pending";
+        return {
+          id: medication.id,
+          name: medication.name,
+          dosage: `${medication.dosageValue}${
+            medication.dosageUnit ? ` ${medication.dosageUnit}` : ""
+          } · ${medication.form}`,
+          times: medication.scheduleTimes.map(formatClockTime).join(", "),
+          taken,
+          missed,
+          pending,
+          slots,
+          status,
+        };
+      });
+  }, [selectedPatient, todayKey]);
+
+  const activityDetailRows = useMemo(() => {
+    if (!selectedPatient) return [];
+    return selectedPatient.activityPlans
+      .filter((plan) => plan.isActive)
+      .map((plan) => {
+        const completedKey = plan.latestCompletedAt
+          ? getManilaDateKey(new Date(plan.latestCompletedAt))
+          : null;
+        const isToday = completedKey === todayKey;
+        const status: "done" | "missed" | "planned" =
+          isToday && plan.latestCompletionStatus === "done"
+            ? "done"
+            : isToday && plan.latestCompletionStatus === "missed"
+              ? "missed"
+              : "planned";
+        return {
+          id: plan.id,
+          title: plan.title,
+          category: plan.category,
+          frequency: plan.frequencyType,
+          targetMinutes: plan.targetMinutes,
+          status,
+          latestCompletedAt: plan.latestCompletedAt,
+        };
+      });
+  }, [selectedPatient, todayKey]);
+
   const latestAlert =
     selectedPatient?.recentMedicationLogs.find((log) => log.status === "missed") ?? null;
   const patientDisplayName = selectedPatient
@@ -727,18 +795,15 @@ export function CaregiverHomeDashboard(props: {
                   </div>
                 ))}
               </div>
-              <Link
-                href={
-                  selectedPatientId
-                    ? `${medicationsBasePath}?patientId=${selectedPatientId}`
-                    : medicationsBasePath
-                }
+              <button
+                type="button"
+                onClick={() => setProgressDetail("medications")}
                 className="mt-1 inline-flex items-center justify-center gap-1 rounded-full border border-[#2F3E34]/20 bg-white px-3 py-1.5 text-[12px] font-semibold text-[#2F3E34] transition-colors hover:border-[#2F3E34]/60 hover:bg-[#F6F7F2]"
-                aria-label="View medication details"
+                aria-label="View today's medication details"
               >
                 View details
                 <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
+              </button>
             </div>
 
             <div className="pd-card flex h-full flex-col gap-2 p-4">
@@ -759,18 +824,15 @@ export function CaregiverHomeDashboard(props: {
               <div className="flex flex-1 flex-col" style={{ minHeight: 0 }}>
                 <ActivityBarChart summary={selectedPatient.activitySummary} />
               </div>
-              <Link
-                href={
-                  selectedPatientId
-                    ? `${activitiesBasePath}?patientId=${selectedPatientId}`
-                    : activitiesBasePath
-                }
+              <button
+                type="button"
+                onClick={() => setProgressDetail("activities")}
                 className="mt-1 inline-flex items-center justify-center gap-1 rounded-full border border-[#2F3E34]/20 bg-white px-3 py-1.5 text-[12px] font-semibold text-[#2F3E34] transition-colors hover:border-[#2F3E34]/60 hover:bg-[#F6F7F2]"
-                aria-label="View activity details"
+                aria-label="View today's activity details"
               >
                 View details
                 <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
+              </button>
             </div>
           </div>
         </div>
@@ -807,6 +869,233 @@ export function CaregiverHomeDashboard(props: {
           }
         />
       ) : null}
+
+      {progressDetail === "medications" && selectedPatient ? (
+        <ProgressDetailModal
+          title="Today's Medications"
+          subtitle={`${patientDisplayName} · ${dateString}`}
+          onClose={() => setProgressDetail(null)}
+          manageHref={
+            selectedPatientId
+              ? `${medicationsBasePath}?patientId=${selectedPatientId}`
+              : medicationsBasePath
+          }
+          manageLabel="Open medications manager"
+          summary={[
+            { color: "#4A7C59", label: "Taken", value: medicationTaken },
+            { color: "#E9C46A", label: "Pending", value: medicationPending },
+            { color: "#D97B7B", label: "Missed", value: medicationMissed },
+          ]}
+          emptyText="No medications are active for this patient."
+        >
+          {medicationDetailRows.length === 0 ? null : (
+            <ul className="flex flex-col gap-2.5">
+              {medicationDetailRows.map((row) => (
+                <li
+                  key={row.id}
+                  className="flex items-start gap-3 rounded-2xl border border-[#2F3E34]/10 bg-white p-3"
+                >
+                  <div
+                    className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-[#2F3E34]/10 text-[#2F3E34]"
+                    aria-hidden="true"
+                  >
+                    <Pill className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-bold text-[#2F3E34]">
+                      {row.name}
+                    </p>
+                    <p className="text-[12px] opacity-70">{row.dosage}</p>
+                    {row.times ? (
+                      <p className="text-[12px] opacity-60">Scheduled: {row.times}</p>
+                    ) : null}
+                    <p className="mt-1 text-[12px] text-[#2F3E34]">
+                      Today: {row.taken} taken · {row.pending} pending · {row.missed} missed
+                    </p>
+                  </div>
+                  <StatusChip status={row.status} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </ProgressDetailModal>
+      ) : null}
+
+      {progressDetail === "activities" && selectedPatient ? (
+        <ProgressDetailModal
+          title="Today's Activities"
+          subtitle={`${patientDisplayName} · ${dateString}`}
+          onClose={() => setProgressDetail(null)}
+          manageHref={
+            selectedPatientId
+              ? `${activitiesBasePath}?patientId=${selectedPatientId}`
+              : activitiesBasePath
+          }
+          manageLabel="Open activities manager"
+          summary={[
+            {
+              color: "#4A7C59",
+              label: "Done",
+              value: selectedPatient.activitySummary.completedToday,
+            },
+            {
+              color: "#E9C46A",
+              label: "Planned",
+              value: Math.max(
+                selectedPatient.activitySummary.activePlans -
+                  selectedPatient.activitySummary.completedToday -
+                  selectedPatient.activitySummary.missedToday,
+                0,
+              ),
+            },
+            {
+              color: "#D97B7B",
+              label: "Missed",
+              value: selectedPatient.activitySummary.missedToday,
+            },
+          ]}
+          emptyText="No routines or activities are active for this patient."
+        >
+          {activityDetailRows.length === 0 ? null : (
+            <ul className="flex flex-col gap-2.5">
+              {activityDetailRows.map((row) => (
+                <li
+                  key={row.id}
+                  className="flex items-start gap-3 rounded-2xl border border-[#2F3E34]/10 bg-white p-3"
+                >
+                  <div
+                    className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-[#2F3E34]/10 text-[#2F3E34]"
+                    aria-hidden="true"
+                  >
+                    <Activity className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-bold text-[#2F3E34]">
+                      {row.title}
+                    </p>
+                    <p className="text-[12px] opacity-70">
+                      {row.category} · {row.frequency}
+                      {row.targetMinutes ? ` · ${row.targetMinutes} min target` : ""}
+                    </p>
+                    {row.latestCompletedAt ? (
+                      <p className="text-[12px] opacity-60">
+                        Last activity: {formatDateTimeShort(row.latestCompletedAt)}
+                      </p>
+                    ) : null}
+                  </div>
+                  <StatusChip status={row.status} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </ProgressDetailModal>
+      ) : null}
     </main>
+  );
+}
+
+function formatDateTimeShort(value: string) {
+  try {
+    return new Date(value).toLocaleString("en-US", {
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      month: "short",
+      timeZone: MANILA_TIMEZONE,
+    });
+  } catch {
+    return value;
+  }
+}
+
+function StatusChip(props: {
+  status: "taken" | "missed" | "pending" | "done" | "planned";
+}) {
+  const map = {
+    taken: { bg: "#DCEBE0", fg: "#2F5D3A", label: "Taken" },
+    done: { bg: "#DCEBE0", fg: "#2F5D3A", label: "Done" },
+    pending: { bg: "#FBEFC8", fg: "#7A5B1F", label: "Pending" },
+    planned: { bg: "#FBEFC8", fg: "#7A5B1F", label: "Planned" },
+    missed: { bg: "#F7D6D6", fg: "#8B2F2F", label: "Missed" },
+  } as const;
+  const { bg, fg, label } = map[props.status];
+  return (
+    <span
+      className="flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold"
+      style={{ background: bg, color: fg }}
+    >
+      {label}
+    </span>
+  );
+}
+
+function ProgressDetailModal(props: {
+  title: string;
+  subtitle: string;
+  onClose: () => void;
+  manageHref: string;
+  manageLabel: string;
+  summary: Array<{ color: string; label: string; value: number }>;
+  emptyText: string;
+  children: React.ReactNode;
+}) {
+  const total = props.summary.reduce((sum, item) => sum + item.value, 0);
+  return (
+    <div className="pd-modal-sheet">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="pd-modal-title">{props.title}</h2>
+          <p className="text-[12px] uppercase tracking-wide opacity-60">
+            {props.subtitle}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={props.onClose}
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border-2 border-[#2F3E34] transition hover:bg-[#E5E7EB]"
+          aria-label="Close details"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      <div className="mb-5 grid grid-cols-3 gap-2">
+        {props.summary.map((item) => (
+          <div
+            key={item.label}
+            className="rounded-2xl border border-[#2F3E34]/10 bg-white p-3 text-center"
+          >
+            <div className="mx-auto mb-1.5 h-2 w-8 rounded-full" style={{ background: item.color }} />
+            <p className="text-[20px] font-bold text-[#2F3E34]" style={{ fontFamily: "var(--font-heading)" }}>
+              {item.value}
+            </p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide opacity-60">
+              {item.label}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {total === 0 && !props.children ? (
+        <p className="rounded-2xl border border-[#2F3E34]/10 bg-white p-4 text-[13px] opacity-70">
+          {props.emptyText}
+        </p>
+      ) : (
+        props.children ?? (
+          <p className="rounded-2xl border border-[#2F3E34]/10 bg-white p-4 text-[13px] opacity-70">
+            {props.emptyText}
+          </p>
+        )
+      )}
+
+      <Link
+        href={props.manageHref}
+        className="mt-5 inline-flex items-center justify-center gap-1 rounded-full border border-[#2F3E34] bg-[#2F3E34] px-5 py-2 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#24302a]"
+        onClick={props.onClose}
+      >
+        {props.manageLabel}
+        <ChevronRight className="h-4 w-4" />
+      </Link>
+    </div>
   );
 }
