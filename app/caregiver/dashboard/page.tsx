@@ -270,8 +270,8 @@ export default function CaregiverDashboardPage() {
           <Link href="/caregiver/dashboard" className="flex items-center justify-center w-full h-full"><House className="w-8 h-8" /></Link>
         </div>
         <Link href="/caregiver/monitoring" className="pd-nav-link"><Activity className="w-7 h-7" /></Link>
-        <Link href="/join" className="pd-nav-link"><UserPlus className="w-7 h-7" /></Link>
-        <Link href="/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
+        <Link href="/caregiver/join" className="pd-nav-link"><UserPlus className="w-7 h-7" /></Link>
+        <Link href="/caregiver/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
         <Link href="/caregiver/profile" className="pd-nav-link"><User className="w-7 h-7" /></Link>
       </nav>
       {medModalOpen && (

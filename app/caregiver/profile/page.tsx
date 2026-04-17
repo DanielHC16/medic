@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { House, Clock, Heart, User, QrCode, ChevronDown } from "lucide-react";
+import { 
+  House, Heart, User, QrCode, ChevronDown, 
+  Activity, UserPlus 
+} from "lucide-react";
 import { ProfileEditModal } from "@/components/profile-edit-modal";
 import { LogoutButton } from "@/components/logout-button";
 
@@ -11,7 +14,10 @@ export default function CaregiverProfilePage() {
   const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
-    fetch("/api/profile").then((r) => r.ok ? r.json() : null).then((j) => j && setUser(j?.user ?? j)).catch(() => {});
+    fetch("/api/profile")
+      .then((r) => r.ok ? r.json() : null)
+      .then((j) => j && setUser(j?.user ?? j))
+      .catch(() => {});
   }, []);
 
   const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : "User";
@@ -57,11 +63,20 @@ export default function CaregiverProfilePage() {
         <LogoutButton />
       </div>
 
-      {/* Bottom Nav */}
+      {/* Bottom Nav — exactly matching dashboard UI */}
       <nav className="pd-nav">
-        <Link href="/caregiver/dashboard" className="pd-nav-link"><House className="w-7 h-7" /></Link>
-        <Link href="/caregiver/monitoring" className="pd-nav-link"><Clock className="w-7 h-7" /></Link>
-        <Link href="/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
+        <Link href="/caregiver/dashboard" className="pd-nav-link">
+          <House className="w-7 h-7" />
+        </Link>
+        <Link href="/caregiver/monitoring" className="pd-nav-link">
+          <Activity className="w-7 h-7" />
+        </Link>
+        <Link href="/caregiver/join" className="pd-nav-link">
+          <UserPlus className="w-7 h-7" />
+        </Link>
+        <Link href="/caregiver/wellness" className="pd-nav-link">
+          <Heart className="w-7 h-7" />
+        </Link>
         <div className="pd-nav-active">
           <Link href="/caregiver/profile" className="flex items-center justify-center w-full h-full">
             <User className="w-8 h-8" />

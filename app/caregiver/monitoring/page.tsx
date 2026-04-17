@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { type LucideIcon, Home, Activity, UserPlus, Heart, User } from "lucide-react";
+import { House, Activity, UserPlus, Heart, User } from "lucide-react";
 
 import { CareAccessStatusPanel } from "@/components/care-access-status-panel";
 import { MedicationManager } from "@/components/medication-manager";
-import { WellnessManager } from "@/components/wellness-manager";
 import { formatDateTime } from "@/lib/display";
 import { requireRole } from "@/lib/auth/dal";
 import {
@@ -113,49 +112,22 @@ export default async function CaregiverMonitoringPage({
                 timeFormat={user.preferences.timeFormat}
                 viewerDisplayName={`${user.firstName} ${user.lastName}`}
               />
-              <WellnessManager
-                activityLogs={activityLogs}
-                activityPlans={selectedPatient.activityPlans}
-                activitySummary={activitySummary}
-                appointments={selectedPatient.appointments}
-                canManage
-                patientUserId={selectedPatientId}
-              />
             </div>
           </div>
         )}
       </main>
 
       {/* --- BOTTOM NAVIGATION BAR --- */}
-      <nav className="fixed bottom-0 left-0 right-0 z-[100] flex items-center justify-around rounded-t-[2.5rem] bg-white px-4 py-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t border-gray-100">
-        <NavIcon href="/caregiver/dashboard" icon={Home} isActive={false} />
-        <NavIcon href="/caregiver/monitoring" icon={Activity} isActive={true} />
-        <NavIcon href="/join" icon={UserPlus} isActive={false} />
-        <NavIcon href="/wellness" icon={Heart} isActive={false} />
-        <NavIcon href="/caregiver/profile" icon={User} isActive={false} />
+      <nav className="pd-nav">
+        <Link href="/caregiver/dashboard" className="pd-nav-link"><House className="w-7 h-7" /></Link>
+        <div className="pd-nav-active">
+          <Link href="/caregiver/monitoring" className="flex items-center justify-center w-full h-full"><Activity className="w-8 h-8" /></Link>
+        </div>
+        <Link href="/caregiver/join" className="pd-nav-link"><UserPlus className="w-7 h-7" /></Link>
+        <Link href="/caregiver/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
+        <Link href="/caregiver/profile" className="pd-nav-link"><User className="w-7 h-7" /></Link>
       </nav>
     </div>
-  );
-}
-
-function NavIcon({
-  href,
-  icon: Icon,
-  isActive,
-}: {
-  href: string;
-  icon: LucideIcon;
-  isActive: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`relative flex h-14 w-14 items-center justify-center transition-all duration-300 ${
-        isActive ? "rounded-full bg-[#5C8B6B] shadow-lg scale-110" : "rounded-full bg-transparent hover:bg-gray-50"
-      }`}
-    >
-      <Icon size={24} color={isActive ? "#FFFFFF" : "#5C8B6B"} strokeWidth={isActive ? 2.5 : 2} />
-    </Link>
   );
 }
 

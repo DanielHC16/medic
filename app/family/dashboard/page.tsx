@@ -357,7 +357,7 @@ export default function FamilyDashboardPage() {
           <Link href="/family/dashboard" className="flex items-center justify-center w-full h-full"><House className="w-8 h-8" /></Link>
         </div>
         <Link href="/family/updates" className="pd-nav-link"><Clock className="w-7 h-7" /></Link>
-        <Link href="/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
+        <Link href="/family/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
         <Link href="/family/profile" className="pd-nav-link"><User className="w-7 h-7" /></Link>
       </nav>
       {medModalOpen && <MedicationModal onClose={() => setMedModalOpen(false)} />}
