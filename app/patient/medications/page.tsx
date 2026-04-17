@@ -30,10 +30,15 @@ export default async function PatientMedicationsPage() {
     >
       <MedicationManager
         canManage
+        contactMethod={user.preferences.preferredContactMethod}
         items={medications}
         logs={logs}
+        patientDisplayName={`${user.firstName} ${user.lastName}`}
         patientUserId={user.userId}
+        role={user.role}
         summary={summary}
+        timeFormat={user.preferences.timeFormat}
+        viewerDisplayName={`${user.firstName} ${user.lastName}`}
       />
       <OfflineSyncPanel medications={medications.filter((item) => item.isActive)} patientUserId={user.userId} />
     </AppShell>

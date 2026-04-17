@@ -1,6 +1,11 @@
 import { requireCurrentUser } from "@/lib/auth/dal";
 import { updateUserAccount } from "@/lib/db/medic-data";
-import { getOptionalString, getRequiredString } from "@/lib/validation";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
+import {
+  getOptionalImageDataUrl,
+  getOptionalString,
+  getRequiredString,
+} from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,8 +20,11 @@ export async function PATCH(request: Request) {
       firstName: getRequiredString(body.firstName, "First name"),
       lastName: getRequiredString(body.lastName, "Last name"),
       phone: getOptionalString(body.phone),
+      profileImageDataUrl: getOptionalImageDataUrl(body.profileImageDataUrl, "Profile photo"),
       userId: user.userId,
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       ok: true,

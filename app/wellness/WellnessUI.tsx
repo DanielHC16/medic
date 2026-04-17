@@ -3,16 +3,24 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, Calendar as CalendarIcon, Play, Check, Plus, MoreHorizontal, MapPin, Search, Filter } from "lucide-react";
+import type {
+  ActivityLogRecord,
+  ActivityPlanRecord,
+  ActivitySummary,
+  AppointmentRecord,
+} from "@/lib/medic-types";
 
 type WellnessUIProps = {
-  activityPlans: any[];
-  appointments: any[];
-  activityLogs: any[];
-  activitySummary: any;
+  activityPlans: ActivityPlanRecord[];
+  appointments: AppointmentRecord[];
+  activityLogs: ActivityLogRecord[];
+  activitySummary: ActivitySummary | null;
   canManage: boolean;
 };
 
-export default function WellnessUI({ activityPlans, appointments, activityLogs, activitySummary, canManage }: WellnessUIProps) {
+export default function WellnessUI(props: WellnessUIProps) {
+  const { activityPlans, appointments, canManage } = props;
+
   // Toggle between the two main screens shown in Figma
   const [activeView, setActiveView] = useState<"tips" | "scheduler">("scheduler");
 
@@ -83,7 +91,7 @@ export default function WellnessUI({ activityPlans, appointments, activityLogs, 
                   </div>
                   <h3 className="text-[18px] font-bold text-[#1A231D] mb-1">{appt.title || "Scheduled Activity"}</h3>
                   <p className="text-[13px] text-[#73847B] leading-snug mb-3">
-                    {appt.description || "Scheduled routine for health tracking."}
+                    {appt.notes || "Scheduled routine for health tracking."}
                   </p>
                   <div className="flex items-center gap-1.5 text-[#73847B]">
                     <MapPin className="w-4 h-4" />
@@ -147,7 +155,7 @@ export default function WellnessUI({ activityPlans, appointments, activityLogs, 
                 <div key={plan.id} className={`rounded-[20px] p-6 shadow-sm flex flex-col justify-center min-h-[120px] relative overflow-hidden ${idx % 2 === 0 ? 'bg-[#E3EFE8]' : 'bg-[#F2E5F5]'}`}>
                   <h3 className="text-[20px] font-extrabold text-[#1A231D] mb-1 z-10 w-2/3">{plan.title || "Breathing Exercise"}</h3>
                   <p className="text-[13px] text-[#5C665F] font-medium z-10 w-2/3 leading-snug">
-                    {plan.description || "Gentle breathing to relax the body."}
+                    {plan.instructions || "Gentle breathing to relax the body."}
                   </p>
                   <button className="absolute right-5 bottom-5 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md text-[#4D6A56] z-10 hover:scale-105 transition-transform">
                      <Play className="w-4 h-4 ml-1" fill="currentColor" />
@@ -177,7 +185,7 @@ export default function WellnessUI({ activityPlans, appointments, activityLogs, 
                 </div>
                 <div className="flex-1">
                   <h4 className="text-[16px] font-bold text-[#1A231D]">Breathing Exercise</h4>
-                  <p className="text-[12px] text-[#73847B] font-medium">Activity 1 • 03:00 min</p>
+                  <p className="text-[12px] text-[#73847B] font-medium">Activity 1 / 03:00 min</p>
                 </div>
               </div>
               <div className="flex items-center gap-4 bg-[#F1F3F2] rounded-[16px] p-3 pr-5 border border-[#D9E0DC]">
@@ -186,7 +194,7 @@ export default function WellnessUI({ activityPlans, appointments, activityLogs, 
                 </div>
                 <div className="flex-1">
                   <h4 className="text-[16px] font-bold text-[#1A231D]">Light Stretching</h4>
-                  <p className="text-[12px] text-[#73847B] font-medium">Activity 2 • 05:00 min</p>
+                  <p className="text-[12px] text-[#73847B] font-medium">Activity 2 / 05:00 min</p>
                 </div>
               </div>
             </div>

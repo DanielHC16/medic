@@ -2,21 +2,29 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { PatientDashboardData, ActivityPlanRecord } from "@/lib/medic-types";
+import Image from "next/image";
+import { MedicationReminderPanel } from "@/components/medication-reminder-panel";
 import {
-  Sun, QrCode, UserRound, Bell, Bot,
-  House, Clock, Heart, User, X, Check,
-  CalendarDays, Stethoscope, MapPin, AlarmClock, Pill, WandSparkles,
-} from "lucide-react";
+  getActivitySummary,
+  getMedicationAdherenceSummary,
+  getPatientDashboardData,
+  listMedicationLogsForPatient,
+} from "@/lib/db/medic-data";
+import { formatDate, formatTimeList } from "@/lib/display";
+import { getNextReminderSlot } from "@/lib/medication-reminders";
+import { requireRole } from "@/lib/auth/dal";
 
-// Helpers 
-function statusPillClass(status: string): string {
-  switch (status.toLowerCase()) {
-    case "scheduled": return "pd-status-scheduled";
-    case "completed":  return "pd-status-completed";
-    case "cancelled":  return "pd-status-cancelled";
-    case "pending":    return "pd-status-pending";
-    default:           return "pd-status-default";
+export default async function PatientDashboardPage() {
+  const user = await requireRole("patient");
+  const [dashboard, medicationLogs, activitySummary, medicationSummary] = await Promise.all([
+    getPatientDashboardData(user.userId),
+    listMedicationLogsForPatient(user.userId, 12),
+    getActivitySummary(user.userId),
+    getMedicationAdherenceSummary(user.userId),
+  ]);
+
+  if (!dashboard) {
+    return null;
   }
 }
 
@@ -38,18 +46,60 @@ function MedicationModal({
   const taken = summary.takenToday;
   const missed = Math.max(0, summary.activeMedications - summary.takenToday);
 
-  const handleMissedClick = async () => {
-    if (!showMissed && !missedLogs) {
-      setLoadingMissed(true);
-      try {
-        const res = await fetch("/api/medication-logs");
-        const json = await res.json();
-        setMissedLogs((json?.logs ?? []).filter((l: any) => l.status === "missed"));
-      } catch { setMissedLogs([]); }
-      finally { setLoadingMissed(false); }
-    }
-    setShowMissed(!showMissed);
-  };
+  // Get next medication and appointment for the display cards
+  const nextMedicationEntry =
+    dashboard.medications
+      .filter((item) => item.isActive)
+      .map((item) => ({
+        item,
+        nextSlot: getNextReminderSlot(item, medicationLogs, today),
+      }))
+      .filter(
+        (
+          entry,
+        ): entry is {
+          item: (typeof dashboard.medications)[number];
+          nextSlot: Date;
+        } => entry.nextSlot instanceof Date,
+      )
+      .sort((left, right) => left.nextSlot.getTime() - right.nextSlot.getTime())[0] ?? null;
+  const nextMedication = nextMedicationEntry?.item ?? dashboard.medications[0] ?? null;
+  const nextMedicationTimeLabel = nextMedicationEntry
+    ? new Intl.DateTimeFormat("en-PH", {
+        hour: "numeric",
+        hour12: user.preferences.timeFormat !== "24h",
+        minute: "2-digit",
+      }).format(nextMedicationEntry.nextSlot)
+    : nextMedication
+      ? formatTimeList(nextMedication.scheduleTimes)
+      : "Not scheduled";
+  const nextAppointment = dashboard.appointments[0];
+  const takenMedicationCount = Math.min(
+    medicationSummary.takenToday,
+    medicationSummary.dueToday,
+  );
+  const medicationAttentionCount = Math.min(
+    medicationSummary.missedToday + medicationSummary.skippedToday,
+    Math.max(medicationSummary.dueToday - takenMedicationCount, 0),
+  );
+  const medicationPendingCount = Math.max(
+    medicationSummary.dueToday -
+      takenMedicationCount -
+      medicationAttentionCount,
+    0,
+  );
+  const medicationProgressStyle = getMedicationProgressStyle({
+    dueToday: medicationSummary.dueToday,
+    pendingCount: medicationPendingCount,
+    takenCount: takenMedicationCount,
+  });
+  const workoutProgressLabel =
+    activitySummary.activePlans > 0
+      ? `${activitySummary.completedToday}/${activitySummary.activePlans}`
+      : "0/0";
+  const appointmentScheduleHref = nextAppointment
+    ? `/patient/schedule?view=appointments&appointmentId=${nextAppointment.id}`
+    : "/patient/schedule?view=appointments";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
@@ -59,37 +109,53 @@ function MedicationModal({
           <button onClick={onClose} className="w-8 h-8 rounded-full border border-[#2F3E34] flex items-center justify-center hover:bg-[#E5E7EB] transition" aria-label="Close">
             <X className="w-4 h-4" />
           </button>
+          <Link
+            href="/profile"
+            className="w-[42px] h-[42px] bg-black rounded-full flex items-center justify-center shadow-md overflow-hidden border-2 border-transparent"
+          >
+            {user.profileImageDataUrl ? (
+              <Image
+                src={user.profileImageDataUrl}
+                alt={`${user.firstName} ${user.lastName} profile photo`}
+                width={42}
+                height={42}
+                className="h-full w-full object-cover"
+                unoptimized
+              />
+            ) : (
+              <UserSolidIcon className="w-6 h-6 text-white" />
+            )}
+          </Link>
         </div>
 
-        <h2 className="pd-modal-title">{med.name}</h2>
-        <p className="text-[13px] opacity-70 mb-1">
-          {med.scheduleFrequencyType
-            ? med.scheduleFrequencyType.charAt(0).toUpperCase() + med.scheduleFrequencyType.slice(1)
-            : "—"} | {med.dosageValue} {med.dosageUnit ?? ""}
-        </p>
-        {med.createdByDisplayName && (
-          <p className="text-[13px] opacity-60 mb-5">Prescribed by: {med.createdByDisplayName}</p>
-        )}
+      <div className="flex flex-col gap-4">
+        
+        {/* Medicine Taken Today Card */}
+        <div className="bg-[#568164] text-white rounded-[24px] p-5 shadow-[0_4px_12px_rgba(86,129,100,0.2)] relative overflow-hidden">
+          <PillIcon className="absolute top-4 right-4 w-6 h-6 opacity-80" />
+          <h2 className="text-[15px] font-medium mb-1">Medicine Taken today</h2>
+          <p className="text-[40px] font-light tracking-wide flex items-baseline gap-2">
+            {medicationSummary.takenToday}
+            <span className="text-[22px] font-normal opacity-90">/ {medicationSummary.dueToday}</span>
+          </p>
+        </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <div className="pd-modal-info-tile">
-            <Pill className="w-7 h-7 flex-shrink-0" />
-            <div>
-              <p className="text-[17px] font-bold leading-tight">{med.dosageValue} {med.form}</p>
-              <p className="text-[13px] opacity-60">
-                {med.scheduleFrequencyType
-                  ? med.scheduleFrequencyType.charAt(0).toUpperCase() + med.scheduleFrequencyType.slice(1)
-                  : "—"}
-              </p>
-            </div>
+        {/* Next Medication Card */}
+        <div className="bg-[#FAFBF9] rounded-[24px] p-5 shadow-[0_2px_10px_rgba(0,0,0,0.03)] flex justify-between items-start">
+          <div>
+            <h2 className="text-[16px] font-bold text-[#1A231D] mb-1">Next Medication:</h2>
+            <p className="text-sm text-[#73847B]">
+              {nextMedication
+                ? `${nextMedication.name} is the next scheduled dose`
+                : "No medications scheduled today"}
+            </p>
           </div>
-          <div className="pd-modal-info-tile">
-            <AlarmClock className="w-7 h-7 flex-shrink-0" />
-            <div>
-              <p className="text-[13px] opacity-60">Every</p>
-              <p className="text-[17px] font-bold leading-tight">
-                {med.scheduleTimes.length > 1 ? `${Math.round(24 / med.scheduleTimes.length)} Hours` : "24 Hours"}
-              </p>
+          {nextMedication && (
+            <div className="flex items-center gap-2 text-[#1A231D]">
+              <span className="text-[15px] font-semibold">
+                {nextMedicationTimeLabel}
+              </span>
+              <BellIcon className="w-5 h-5" />
             </div>
           </div>
         </div>
@@ -115,12 +181,22 @@ function MedicationModal({
           )}
         </div>
 
-        <p className="text-[13px] font-bold mb-2">Tracker:</p>
-        <div className="flex gap-3 mb-2">
-          <div className="pd-tracker-tile">
-            <Pill className="w-5 h-5" />
-            <p className="text-[18px] font-bold">{taken} / {summary.activeMedications}</p>
-            <p className="text-[13px] opacity-60">Taken</p>
+        <MedicationReminderPanel
+          contactMethod={user.preferences.preferredContactMethod}
+          logs={medicationLogs}
+          medications={dashboard.medications}
+          patientDisplayName={`${user.firstName} ${user.lastName}`}
+          patientUserId={user.userId}
+          role={user.role}
+          timeFormat={user.preferences.timeFormat}
+          viewerDisplayName={`${user.firstName} ${user.lastName}`}
+        />
+
+        {/* AI Recommendation Card */}
+        <div className="bg-[#FAFBF9] rounded-[24px] p-5 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
+          <div className="flex items-center gap-2.5 mb-2">
+            <RobotIcon className="w-[22px] h-[22px] text-[#1A231D]" />
+            <h2 className="text-[16px] font-bold text-[#1A231D]">AI Recommendation</h2>
           </div>
           {missed > 0 ? (
             <button className="pd-tracker-tile text-left hover:bg-[#FEE2E2] transition" onClick={handleMissedClick}>
@@ -139,61 +215,119 @@ function MedicationModal({
           )}
         </div>
 
-        {showMissed && (
-          <div className="pd-missed-panel">
-            <div className="px-4 py-2 border-b border-[#D97B7B]/20">
-              <p className="text-[13px] font-bold text-[#D97B7B]">Missed Doses</p>
-            </div>
-            {loadingMissed ? (
-              <p className="text-[13px] opacity-50 px-4 py-3">Loading…</p>
-            ) : !missedLogs || missedLogs.length === 0 ? (
-              <p className="text-[13px] opacity-50 px-4 py-3">No missed doses recorded.</p>
-            ) : (
-              <div className="flex flex-col divide-y divide-[#D97B7B]/10">
-                {missedLogs.map((log) => {
-                  const dt = new Date(log.scheduledFor ?? log.createdAt);
-                  const dateStr = dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Manila" });
-                  const timeStr = dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Manila" });
-                  return (
-                    <div key={log.id} className="px-4 py-3 flex justify-between items-start">
-                      <div>
-                        <p className="text-[13px] font-semibold">{log.medicationName}</p>
-                        {log.notes && <p className="text-[13px] opacity-60 mt-0.5">{log.notes}</p>}
-                      </div>
-                      <div className="text-right flex-shrink-0 ml-3">
-                        <p className="text-[13px] font-semibold opacity-70">{dateStr}</p>
-                        <p className="text-[13px] opacity-50">{timeStr}</p>
-                      </div>
-                    </div>
-                  );
-                })}
+        {/* Upcoming Appointments Section */}
+        <div className="mt-3 flex items-center justify-between px-1">
+          <h3 className="text-[18px] font-bold text-[#1A231D]">
+          Upcoming Appointments:
+          </h3>
+          <Link
+            href={appointmentScheduleHref}
+            className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#568164]"
+          >
+            View schedule
+          </Link>
+        </div>
+
+        {dashboard.appointments.length === 0 ? (
+           <div className="bg-[#FAFBF9] rounded-[24px] p-5 shadow-sm text-sm text-[#73847B] text-center">
+             No upcoming appointments.
+           </div>
+        ) : (
+          <Link
+            href={appointmentScheduleHref}
+            className="block bg-[#FAFBF9] rounded-[24px] p-5 shadow-[0_2px_10px_rgba(0,0,0,0.03)]"
+          >
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <span className="text-[15px] font-bold text-[#1A231D] block mb-0.5">
+                  {formatDate(nextAppointment.appointmentAt)}
+                </span>
+                <h4 className="text-[16px] font-bold text-[#425F4C]">{nextAppointment.title}</h4>
               </div>
-            )}
-          </div>
+              <div className="flex items-center gap-2 text-[#1A231D]">
+                <span className="text-[15px] font-semibold">
+                   {getAppointmentTimeLabel(nextAppointment.appointmentAt, user.preferences.timeFormat)}
+                </span>
+                <BellIcon className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="text-[14px] text-[#4A5D52] space-y-1.5">
+              <p><span className="text-[#73847B]">Doctor:</span> {nextAppointment.providerName || "Pending"}</p>
+              <p><span className="text-[#73847B]">Location:</span> {nextAppointment.location || "Pending"}</p>
+              <p className="pt-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#568164]">
+                Open appointment details
+              </p>
+            </div>
+          </Link>
         )}
 
-        {!showMissed && <div className="mb-6" />}
-        <p className="text-[13px] font-bold mb-2">Notes:</p>
-        <div className="pd-notes-box">{med.instructions || "No notes available"}</div>
-      </div>
-    </div>
-  );
-}
+        {/* Progress Summary Section */}
+        <h3 className="text-[18px] font-bold text-[#1A231D] mt-3 mb-1 px-1">
+          Progress Summary
+        </h3>
 
-// Appointment Modal 
-function AppointmentModal({
-  appt, onClose,
-}: {
-  appt: PatientDashboardData["appointments"][0];
-  onClose: () => void;
-}) {
-  const dt = new Date(appt.appointmentAt);
-  const dateLabel = dt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Manila" });
-  const timeLabel = dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Manila" });
+        <div className="grid grid-cols-2 gap-4">
+          
+          {/* Donut Chart Card */}
+          <div className="bg-[#FAFBF9] rounded-[24px] p-4 flex flex-col items-center shadow-[0_2px_10px_rgba(0,0,0,0.03)] aspect-[4/5] relative">
+            <div
+              className="relative mb-4 flex h-[130px] w-[130px] items-center justify-center rounded-full"
+              style={medicationProgressStyle}
+            >
+              <div className="flex h-[94px] w-[94px] flex-col items-center justify-center rounded-full bg-[#FAFBF9]">
+                <span className="mb-0.5 text-[26px] font-bold leading-none text-[#1A231D]">
+                  {medicationSummary.takenToday}/{medicationSummary.dueToday}
+                </span>
+                <span className="text-center text-[10px] font-medium leading-[1.2] text-[#73847B]">
+                  Medications
+                  <br />
+                  Taken
+                </span>
+              </div>
+            </div>
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="pd-modal-sheet" onClick={(e) => e.stopPropagation()}>
+            {/* Legend */}
+            <div className="flex w-full justify-between items-center px-1 mt-auto pb-1">
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#8BA488]" />
+                <span className="text-[9px] font-medium text-[#73847B]">Taken</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#F1D262]" />
+                <span className="text-[9px] font-medium text-[#73847B]">Pending</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#D49191]" />
+                <span className="text-[9px] font-medium text-[#73847B]">Attention</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Workouts Completed Card */}
+          <div className="bg-[#FAFBF9] rounded-[24px] shadow-[0_2px_10px_rgba(0,0,0,0.03)] p-5 flex flex-col items-center justify-between text-center min-h-[200px]">
+            <div className="relative w-full h-[100px] mb-3 flex-shrink-0">
+              {/* Ensure you have this illustration in your public folder */}
+              <Image 
+                src="/Blue-Simple-Elderly-Care-Logo.png" 
+                alt="Stretching Progress" 
+                fill
+                className="object-contain"
+              />
+            </div>
+            <div className="mt-auto flex flex-col items-center pb-1">
+              <span className="text-[22px] font-bold text-[#1A231D] leading-none mb-1">
+                {workoutProgressLabel}
+              </span>
+              <span className="text-[11px] text-[#73847B] font-medium leading-snug">
+                Routines
+                <br />
+                Completed
+              </span>
+              <span className="mt-2 text-[10px] font-medium uppercase tracking-[0.16em] text-[#73847B]">
+                {activitySummary.missedToday} missed today
+              </span>
+            </div>
+          </div>
 
         <div className="flex justify-between items-center mb-4">
           <span className={`text-[13px] font-bold px-3 py-1 rounded-full ${statusPillClass(appt.status)}`}>
@@ -525,4 +659,42 @@ export default function PatientDashboardPage() {
       {selectedAppt && <AppointmentModal appt={selectedAppt} onClose={() => setSelectedAppt(null)} />}
     </main>
   );
+}
+
+function getAppointmentTimeLabel(value: string, timeFormat: "12h" | "24h") {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-PH", {
+    hour: "numeric",
+    hour12: timeFormat !== "24h",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function getMedicationProgressStyle(props: {
+  dueToday: number;
+  pendingCount: number;
+  takenCount: number;
+}) {
+  if (props.dueToday <= 0) {
+    return {
+      background: "conic-gradient(#DCE4DE 0deg 360deg)",
+    };
+  }
+
+  const takenDegrees = (props.takenCount / props.dueToday) * 360;
+  const pendingDegrees = (props.pendingCount / props.dueToday) * 360;
+  const attentionStart = takenDegrees + pendingDegrees;
+
+  return {
+    background: `conic-gradient(
+      #8BA488 0deg ${takenDegrees}deg,
+      #F1D262 ${takenDegrees}deg ${attentionStart}deg,
+      #D49191 ${attentionStart}deg 360deg
+    )`,
+  };
 }

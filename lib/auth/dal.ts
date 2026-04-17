@@ -43,8 +43,12 @@ export async function requireRole(role: RoleSlug) {
   return user;
 }
 
-export function getDefaultRouteForRole(user: SessionUser | AuthenticatedUser) {
-  switch (user.role) {
+export function getDefaultRouteForRole(
+  user: SessionUser | AuthenticatedUser | RoleSlug,
+) {
+  const role = typeof user === "string" ? user : user.role;
+
+  switch (role) {
     case "patient":
       return "/patient/dashboard";
     case "caregiver":
@@ -54,6 +58,23 @@ export function getDefaultRouteForRole(user: SessionUser | AuthenticatedUser) {
     default:
       return "/";
   }
+}
+
+export function getProfileRouteForRole(role: RoleSlug) {
+  switch (role) {
+    case "patient":
+      return "/profile";
+    case "caregiver":
+      return "/caregiver/profile";
+    case "family_member":
+      return "/family/profile";
+    default:
+      return "/";
+  }
+}
+
+export function getSettingsRouteForRole(role: RoleSlug) {
+  return role === "patient" ? "/patient/settings" : "/settings";
 }
 
 export async function requirePatientScope(requestedPatientId?: string | null) {

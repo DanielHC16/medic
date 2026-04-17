@@ -9,6 +9,7 @@ import type {
   RoleSlug,
   ShareableInvitation,
 } from "@/lib/medic-types";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import { assertRole } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -77,6 +78,8 @@ export async function POST(request: Request) {
       memberRole,
       patientUserId: user.userId,
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       invitation: invitation satisfies ShareableInvitation,

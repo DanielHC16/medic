@@ -3,7 +3,13 @@ import {
   createMedicationWithSchedule,
   listMedicationsForPatient,
 } from "@/lib/db/medic-data";
-import { getOptionalString, getRequiredString, getStringArray } from "@/lib/validation";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
+import {
+  getOptionalImageDataUrl,
+  getOptionalString,
+  getRequiredString,
+  getStringArray,
+} from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,11 +57,14 @@ export async function POST(request: Request) {
       dosageValue: getRequiredString(body.dosageValue, "Dosage value"),
       form: getRequiredString(body.form, "Medication form"),
       frequencyType: getRequiredString(body.frequencyType, "Frequency"),
+      imageDataUrl: getOptionalImageDataUrl(body.imageDataUrl, "Medication image"),
       instructions: getOptionalString(body.instructions),
       name: getRequiredString(body.name, "Medication name"),
       patientUserId: scope.patientUserId,
       timesOfDay: getStringArray(body.timesOfDay),
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       medicationId,

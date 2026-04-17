@@ -3,7 +3,9 @@ import {
   archiveMedication,
   updateMedicationWithSchedule,
 } from "@/lib/db/medic-data";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import {
+  getOptionalImageDataUrl,
   getOptionalString,
   getRequiredString,
   getStringArray,
@@ -39,12 +41,15 @@ export async function PATCH(
       dosageValue: getRequiredString(body.dosageValue, "Dosage value"),
       form: getRequiredString(body.form, "Medication form"),
       frequencyType: getRequiredString(body.frequencyType, "Frequency"),
+      imageDataUrl: getOptionalImageDataUrl(body.imageDataUrl, "Medication image"),
       instructions: getOptionalString(body.instructions),
       medicationId: id,
       name: getRequiredString(body.name, "Medication name"),
       patientUserId: scope.patientUserId,
       timesOfDay: getStringArray(body.timesOfDay),
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       ok: true,
@@ -83,6 +88,8 @@ export async function DELETE(
       medicationId: id,
       patientUserId: scope.patientUserId,
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       ok: true,

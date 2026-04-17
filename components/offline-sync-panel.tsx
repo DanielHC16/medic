@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 
+import { getLocalDateKey } from "@/lib/medication-reminders";
 import type { MedicationRecord } from "@/lib/medic-types";
 
 type OfflineOperation = {
   clientRef: string;
+  localDate: string;
   medicationId: string;
   patientUserId: string;
   scheduledFor: string;
@@ -59,6 +61,7 @@ export function OfflineSyncPanel(props: {
 
     const nextOperation: OfflineOperation = {
       clientRef: `offline-${crypto.randomUUID()}`,
+      localDate: getLocalDateKey(new Date()),
       medicationId: selectedMedicationId,
       patientUserId: props.patientUserId,
       scheduledFor: new Date().toISOString(),

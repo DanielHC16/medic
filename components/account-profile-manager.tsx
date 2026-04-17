@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -30,6 +31,7 @@ export function AccountProfileManager(props: {
     firstName: props.user.firstName,
     lastName: props.user.lastName,
     phone: props.user.phone ?? "",
+    profileImageDataUrl: props.user.profileImageDataUrl,
   });
 
   async function handleSubmit(formData: FormData) {
@@ -43,6 +45,7 @@ export function AccountProfileManager(props: {
           firstName: formData.get("firstName"),
           lastName: formData.get("lastName"),
           phone: formData.get("phone"),
+          profileImageDataUrl: formState.profileImageDataUrl,
         }),
         headers: {
           "Content-Type": "application/json",
@@ -82,6 +85,76 @@ export function AccountProfileManager(props: {
         </p>
 
         <form action={handleSubmit} className="mt-6 grid gap-4">
+          <div className="grid gap-3">
+            <span className="text-sm font-medium text-[var(--foreground)]">
+              Profile photo
+            </span>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-surface-muted)]">
+                {formState.profileImageDataUrl ? (
+                  <Image
+                    src={formState.profileImageDataUrl}
+                    alt={`${formState.firstName} ${formState.lastName} profile photo`}
+                    width={96}
+                    height={96}
+                    className="h-full w-full object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <span className="text-2xl font-semibold text-[var(--color-primary)]">
+                    {getInitials(formState.firstName, formState.lastName)}
+                  </span>
+                )}
+              </div>
+
+              <div className="grid gap-3">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0];
+
+                    if (!file) {
+                      return;
+                    }
+
+                    try {
+                      const profileImageDataUrl = await readImageAsDataUrl(file);
+                      setFormState((current) => ({
+                        ...current,
+                        profileImageDataUrl,
+                      }));
+                      setMessage(null);
+                    } catch (error) {
+                      setMessage(
+                        error instanceof Error
+                          ? error.message
+                          : "Unable to read the selected profile photo.",
+                      );
+                    }
+                    event.target.value = "";
+                  }}
+                  className="medic-field file:mr-3 file:rounded-full file:border-0 file:bg-[var(--color-primary)] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white"
+                />
+
+                {formState.profileImageDataUrl ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormState((current) => ({
+                        ...current,
+                        profileImageDataUrl: null,
+                      }))
+                    }
+                    className="medic-button w-fit px-4 py-2 text-sm"
+                  >
+                    Remove photo
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <label className="grid gap-2">
               <span className="text-sm font-medium text-[var(--foreground)]">
@@ -243,4 +316,24 @@ export function AccountProfileManager(props: {
       </div>
     </section>
   );
+}
+
+function getInitials(firstName: string, lastName: string) {
+  return `${firstName.trim().charAt(0)}${lastName.trim().charAt(0)}`.trim() || "U";
+}
+
+function readImageAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("Unable to read the selected profile photo."));
+    };
+    reader.onerror = () => reject(new Error("Unable to read the selected profile photo."));
+    reader.readAsDataURL(file);
+  });
 }
