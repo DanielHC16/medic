@@ -43,7 +43,7 @@ const CAREGIVER_ITEMS = [
     label: "Medications",
   },
   {
-    href: "/caregiver/join",
+    href: "/join",
     icon: UserPlus,
     key: "join",
     label: "Join",
@@ -87,7 +87,7 @@ const FAMILY_ITEMS = [
     label: "Medications",
   },
   {
-    href: "/caregiver/join",
+    href: "/join",
     icon: UserPlus,
     key: "join",
     label: "Join",
@@ -112,7 +112,7 @@ const FAMILY_ITEMS = [
 }>;
 
 function withPatientQuery(href: string, patientUserId?: string | null) {
-  if (!patientUserId || href === "/caregiver/join") {
+  if (!patientUserId || href === "/join") {
     return href;
   }
 

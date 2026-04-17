@@ -460,7 +460,7 @@ export function CaregiverHomeDashboard(props: {
         </div>
         <div className="flex items-center gap-2.5">
           <Link
-            href="/caregiver/join"
+            href="/join"
             className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-md"
             style={{ background: "#2F3E34" }}
             aria-label="Open patient join page"
@@ -521,7 +521,7 @@ export function CaregiverHomeDashboard(props: {
             Join a patient first so the dashboard can show real medication, routine, and
             appointment data here.
           </p>
-          <Link href="/caregiver/join" className="medic-button medic-button-primary mt-4">
+          <Link href="/join" className="medic-button medic-button-primary mt-4">
             Connect to a patient
           </Link>
         </div>

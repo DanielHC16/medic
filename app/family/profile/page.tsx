@@ -61,7 +61,7 @@ export default function FamilyProfilePage() {
         <p className="mb-3 text-[15px] font-bold">Options:</p>
         <div className="flex flex-col gap-3">
           <Link
-            href="/caregiver/join"
+            href="/join"
             className="pd-card flex items-center gap-4 p-4 transition hover:opacity-90"
           >
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#2F3E34]/10">
@@ -91,7 +91,7 @@ export default function FamilyProfilePage() {
           </Link>
 
           <Link
-            href="/caregiver/join"
+            href="/join"
             className="pd-card flex items-center gap-4 p-4 transition hover:opacity-90"
           >
             <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#2F3E34]/10">

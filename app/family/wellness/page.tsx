@@ -41,7 +41,7 @@ export default async function WellnessPage({ searchParams }: WellnessPageProps) 
           <section className="rounded-[2rem] border border-black/5 bg-white/90 p-8 shadow-sm text-center">
             <p className="text-gray-500">No linked patient is available yet.</p>
             <Link 
-              href="/caregiver/join" 
+              href="/join" 
               className="mt-4 inline-block text-sm font-bold text-[#5C8B6B] underline"
             >
               Connect to a patient
