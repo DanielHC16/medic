@@ -26,7 +26,10 @@ import type {
   CareMemberDashboardData,
   MedicationLogRecord,
   MedicationRecord,
+  RoleSlug,
 } from "@/lib/medic-types";
+
+type SupportedCareRole = Extract<RoleSlug, "caregiver" | "family_member">;
 
 const MANILA_TIMEZONE = "Asia/Manila";
 const WEEKDAY_OPTIONS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -257,8 +260,15 @@ function ActivityBarChart(props: {
 
 export function CaregiverHomeDashboard(props: {
   dashboard: CareMemberDashboardData;
+  role?: SupportedCareRole;
 }) {
   const router = useRouter();
+  const role: SupportedCareRole = props.role ?? "caregiver";
+  const canManage = role === "caregiver";
+  const dashboardBasePath =
+    role === "caregiver" ? "/caregiver/dashboard" : "/family/dashboard";
+  const profilePath = role === "caregiver" ? "/caregiver/profile" : "/family/profile";
+  const joinPath = role === "caregiver" ? "/caregiver/join" : "/caregiver/join";
   const [message, setMessage] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<"alert" | "appointment" | null>(null);
   const [selectedMedication, setSelectedMedication] = useState<MedicationRecord | null>(null);
@@ -460,14 +470,14 @@ export function CaregiverHomeDashboard(props: {
         </div>
         <div className="flex items-center gap-2.5">
           <Link
-            href="/caregiver/join"
+            href={joinPath}
             className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-md"
             style={{ background: "#2F3E34" }}
             aria-label="Open patient join page"
           >
             <QrCode className="h-5 w-5" />
           </Link>
-          <Link href="/caregiver/profile" aria-label="Open caregiver profile">
+          <Link href={profilePath} aria-label="Open profile">
             <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-[#2F3E34] bg-[#E5E7EB]">
               {props.dashboard.user.profileImageDataUrl ? (
                 <Image
@@ -496,7 +506,7 @@ export function CaregiverHomeDashboard(props: {
               return (
                 <Link
                   key={patient.relationshipId}
-                  href={`/caregiver/dashboard?patientId=${patient.patientUserId}`}
+                  href={`${dashboardBasePath}?patientId=${patient.patientUserId}`}
                   className={`cg-patient-pill ${
                     isActive ? "cg-patient-pill-active" : "cg-patient-pill-inactive"
                   }`}
@@ -521,7 +531,7 @@ export function CaregiverHomeDashboard(props: {
             Join a patient first so the dashboard can show real medication, routine, and
             appointment data here.
           </p>
-          <Link href="/caregiver/join" className="medic-button medic-button-primary mt-4">
+          <Link href={joinPath} className="medic-button medic-button-primary mt-4">
             Connect to a patient
           </Link>
         </div>
@@ -558,16 +568,18 @@ export function CaregiverHomeDashboard(props: {
                 for {latestAlert.medicationName}
                 {latestAlert.loggedForDate ? ` on ${latestAlert.loggedForDate}` : ""}.
               </p>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleMarkAlertTaken}
-                  disabled={pendingAction === "alert"}
-                  className="rounded-full bg-[#4A7C59] px-4 py-2 text-[13px] font-bold uppercase tracking-wide text-white disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {pendingAction === "alert" ? "Updating..." : "Mark as Taken"}
-                </button>
-              </div>
+              {canManage ? (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleMarkAlertTaken}
+                    disabled={pendingAction === "alert"}
+                    className="rounded-full bg-[#4A7C59] px-4 py-2 text-[13px] font-bold uppercase tracking-wide text-white disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {pendingAction === "alert" ? "Updating..." : "Mark as Taken"}
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -739,7 +751,7 @@ export function CaregiverHomeDashboard(props: {
       <CareMemberBottomNav
         activeItem="home"
         patientUserId={selectedPatientId}
-        role="caregiver"
+        role={role}
       />
 
       {medicationModalData ? (
@@ -755,7 +767,9 @@ export function CaregiverHomeDashboard(props: {
           data={appointmentModalData.data}
           onClose={() => setSelectedAppointment(null)}
           onMarkDone={
-            selectedAppointment?.status === "completed" ? undefined : handleMarkAppointmentDone
+            canManage && selectedAppointment?.status !== "completed"
+              ? handleMarkAppointmentDone
+              : undefined
           }
         />
       ) : null}

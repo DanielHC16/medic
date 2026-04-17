@@ -1046,7 +1046,7 @@ async function rawQuery<T>(query: string, params: unknown[] = []) {
   return (await sql.query(query, params)) as T[];
 }
 
-async function ensureMedicSchemaReady() {
+export async function ensureMedicSchemaReady() {
   if (schemaReady) {
     return;
   }
@@ -1778,7 +1778,7 @@ export async function registerUser(input: {
   phone?: string;
   role: RoleSlug;
 }) {
-  await ensureMedicSchema();
+  await ensureMedicSchemaReady();
   const normalizedEmail = normalizeEmail(input.email);
   const normalizedPhone = normalizePhone(input.phone);
   const firstName = input.firstName.trim();
@@ -1870,7 +1870,7 @@ export async function authenticateUser(input: {
   identifier: string;
   password: string;
 }) {
-  await ensureMedicSchema();
+  await ensureMedicSchemaReady();
   const user = await getUserForAuth(input.identifier);
 
   if (!user) {
@@ -1929,7 +1929,7 @@ export async function updateUserAccount(input: {
   profileImageDataUrl?: string | null;
   userId: string;
 }) {
-  await ensureMedicSchema();
+  await ensureMedicSchemaReady();
 
   const nextEmail = normalizeEmail(input.email);
   const nextPhone = normalizePhone(input.phone);
@@ -1979,7 +1979,7 @@ export async function updatePatientHealthProfile(input: {
   emergencyNotes?: string | null;
   patientUserId: string;
 }) {
-  await ensureMedicSchema();
+  await ensureMedicSchemaReady();
 
   await queryMany(
     `insert into patient_profiles (
@@ -2014,7 +2014,7 @@ export async function updateUserPreferences(input: {
   timeFormat: TimeFormatPreference;
   userId: string;
 }) {
-  await ensureMedicSchema();
+  await ensureMedicSchemaReady();
 
   await queryMany(
     `update users
@@ -2112,7 +2112,7 @@ export async function createInvitation(input: {
   memberRole: RoleSlug;
   patientUserId: string;
 }) {
-  await ensureMedicSchema();
+  await ensureMedicSchemaReady();
   const inviteId = createId("invite");
   const inviteCode = createInviteCode();
 
@@ -2223,7 +2223,7 @@ export async function acceptInvitation(input: {
   code: string;
   userId: string;
 }) {
-  await ensureMedicSchema();
+  await ensureMedicSchemaReady();
   const preview = await getInvitationPreviewByCode(input.code);
 
   if (!preview) {
