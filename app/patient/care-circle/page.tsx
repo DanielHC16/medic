@@ -1,10 +1,10 @@
-import { AppShell } from "@/components/app-shell";
 import { CareCircleManager } from "@/components/care-circle-manager";
+import { PatientBottomNav } from "@/components/patient-bottom-nav";
+import { requireRole } from "@/lib/auth/dal";
 import {
   listInvitationsForPatient,
   listPatientConnections,
 } from "@/lib/db/medic-data";
-import { requireRole } from "@/lib/auth/dal";
 
 export default async function PatientCareCirclePage() {
   const user = await requireRole("patient");
@@ -14,22 +14,26 @@ export default async function PatientCareCirclePage() {
   ]);
 
   return (
-    <AppShell
-      user={user}
-      title="Care Circle"
-      description="Generate invite codes, deep links, and QR shares, approve pending requests, and review who can access the patient profile."
-      patientBottomNavActive="care-circle"
-      links={[
-        { href: "/patient/dashboard", label: "Home" },
-        { href: "/patient/medications", label: "Medications" },
-        { href: "/profile", label: "Profile" },
-      ]}
-    >
-      <CareCircleManager
-        connections={connections}
-        invitations={invitations}
-        patientUserId={user.userId}
-      />
-    </AppShell>
+    <main className="pd-page pb-24">
+      {/* Header matching the dashboard aesthetic */}
+      <header className="mb-6">
+        <h1 className="pd-heading">Care Circle</h1>
+        <p className="text-[13px] opacity-70 mt-1">
+          Generate invite codes, deep links, and QR shares, approve pending requests, and review who can access the patient profile.
+        </p>
+      </header>
+
+      {/* Main Content Area */}
+      <div className="flex flex-col gap-4">
+        <CareCircleManager
+          connections={connections}
+          invitations={invitations}
+          patientUserId={user.userId}
+        />
+      </div>
+
+      {/* Bottom Navigation with Care Circle set to active */}
+      <PatientBottomNav activeItem="care-circle" />
+    </main>
   );
 }

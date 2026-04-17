@@ -42,7 +42,7 @@ const NAV_ITEMS: Array<{
     label: "Care Circle",
   },
   {
-    href: "/wellness",
+    href: "/patient/wellness",
     icon: Heart,
     key: "wellness",
     label: "Wellness",
