@@ -13,10 +13,15 @@ import type { MedicationLogStatus } from "@/lib/medic-types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const user = await requireRole("patient");
-    const logs = await listMedicationLogsForPatient(user.userId, 50);
+    const { searchParams } = new URL(request.url);
+    const patientId = searchParams.get("patientId");
+    const scope = await requirePatientScope(patientId);
+    if (!scope.patientUserId) {
+      return Response.json({ logs: [], ok: true });
+    }
+    const logs = await listMedicationLogsForPatient(scope.patientUserId, 50);
     return Response.json({ logs, ok: true });
   } catch (error) {
     return Response.json(

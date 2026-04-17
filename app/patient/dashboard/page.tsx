@@ -181,7 +181,7 @@ function MedicationModal({
   );
 }
 
-// ─── Appointment Modal ────────────────────────────────────────────────────────
+// Appointment Modal ────────────────────────────────────────────────────────
 
 function AppointmentModal({
   appt, onClose,
@@ -284,7 +284,7 @@ function ActivityBarChart({ plans }: { plans: ActivityPlanRecord[] }) {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// Main Page
 
 export default function PatientDashboardPage() {
   const [data, setData] = useState<PatientDashboardData | null>(null);

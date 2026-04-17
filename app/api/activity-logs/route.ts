@@ -1,10 +1,25 @@
-import { canManagePatientData, requirePatientScope } from "@/lib/auth/dal";
-import { recordActivityLog } from "@/lib/db/medic-data";
+import { canManagePatientData, requirePatientScope, getCurrentUser } from "@/lib/auth/dal";
+import { listActivityLogsForPatient, recordActivityLog } from "@/lib/db/medic-data";
 import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import type { ActivityCompletionStatus } from "@/lib/medic-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const patientId = searchParams.get("patientId");
+    const scope = await requirePatientScope(patientId);
+    if (!scope.patientUserId) {
+      return Response.json({ logs: [], ok: true });
+    }
+    const logs = await listActivityLogsForPatient(scope.patientUserId, 30);
+    return Response.json({ logs, ok: true });
+  } catch {
+    return Response.json({ logs: [], ok: true });
+  }
+}
 
 function getCompletionStatus(value: unknown): ActivityCompletionStatus {
   return value === "done" || value === "missed" ? value : "planned";

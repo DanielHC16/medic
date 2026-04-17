@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pill, ChevronUp, ChevronDown } from "lucide-react";
+import { Pill, Clock, Check } from "lucide-react";
 
 interface Props {
   medicationName: string;
@@ -11,28 +11,28 @@ interface Props {
 }
 
 export function MedicationTimeEditModal({ medicationName, initialTime = "12:00", onCancel, onSave }: Props) {
-  const [time, setTime] = useState(initialTime); // always "HH:MM" 24h
+  const [time, setTime] = useState(initialTime);
+  const [saved, setSaved] = useState(false);
 
-  const [hh, mm] = time.split(":").map(Number);
-  const isPM = hh >= 12;
-  const hour12 = hh % 12 || 12;
-
-  function fmt(h: number, m: number) {
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-  }
-
-  function stepHour(delta: number) {
-    const next = ((hh + delta + 24) % 24);
-    setTime(fmt(next, mm));
-  }
-
-  function stepMin(delta: number) {
-    const next = ((mm + delta + 60) % 60);
-    setTime(fmt(hh, next));
-  }
-
-  function toggleAMPM() {
-    setTime(fmt(isPM ? hh - 12 : hh + 12, mm));
+  if (saved) {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm px-6">
+        <div className="w-full max-w-sm rounded-[24px] p-8 flex flex-col items-center gap-5"
+          style={{ background: "#2F3E34" }}>
+          <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center">
+            <Check className="w-8 h-8 text-white" strokeWidth={3} />
+          </div>
+          <h2 className="text-[24px] font-bold text-white text-center" style={{ fontFamily: "var(--font-heading)" }}>
+            Successfully Edited!
+          </h2>
+          <button onClick={() => onSave(time)}
+            className="px-10 py-3 rounded-[14px] text-[13px] font-bold uppercase tracking-widest text-white"
+            style={{ background: "#4A7C59" }}>
+            CLOSE
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -44,92 +44,27 @@ export function MedicationTimeEditModal({ medicationName, initialTime = "12:00",
         <h2 className="text-[28px] font-bold text-white text-center" style={{ fontFamily: "var(--font-heading)" }}>
           {medicationName}
         </h2>
-        <p className="text-[15px] text-white/70">Time Taken:</p>
+        <p className="text-[15px] text-white/70" style={{ fontFamily: "Inter, sans-serif" }}>Time Taken:</p>
 
-        {/* Time picker */}
-        <div className="flex items-center gap-3">
-
-          {/* Hours */}
-          <div className="flex items-center gap-1">
-            <input
-              type="number"
-              min={1} max={12}
-              value={hour12}
-              onChange={(e) => {
-                const v = parseInt(e.target.value, 10);
-                if (isNaN(v)) return;
-                const clamped = Math.min(Math.max(v, 1), 12);
-                const h24 = isPM ? (clamped === 12 ? 12 : clamped + 12) : (clamped === 12 ? 0 : clamped);
-                setTime(fmt(h24, mm));
-              }}
-              className="w-[60px] text-[40px] font-bold text-white text-center bg-transparent outline-none border-b-2 border-white/50 leading-none pb-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              style={{ fontFamily: "Inter, sans-serif", color: "#ffffff" }}
-            />
-            <div className="flex flex-col gap-0.5">
-              <button type="button" onClick={() => stepHour(1)} className="text-white/60 hover:text-white transition">
-                <ChevronUp className="w-4 h-4" strokeWidth={2.5} />
-              </button>
-              <button type="button" onClick={() => stepHour(-1)} className="text-white/60 hover:text-white transition">
-                <ChevronDown className="w-4 h-4" strokeWidth={2.5} />
-              </button>
-            </div>
-          </div>
-
-          <span className="text-[40px] font-bold text-white/60 leading-none">:</span>
-
-          {/* Minutes */}
-          <div className="flex items-center gap-1">
-            <input
-              type="number"
-              min={0} max={59}
-              value={String(mm).padStart(2, "0")}
-              onChange={(e) => {
-                const v = parseInt(e.target.value, 10);
-                if (isNaN(v)) return;
-                setTime(fmt(hh, Math.min(Math.max(v, 0), 59)));
-              }}
-              className="w-[60px] text-[40px] font-bold text-white text-center bg-transparent outline-none border-b-2 border-white/50 leading-none pb-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              style={{ fontFamily: "Inter, sans-serif", color: "#ffffff" }}
-            />
-            <div className="flex flex-col gap-0.5">
-              <button type="button" onClick={() => stepMin(1)} className="text-white/60 hover:text-white transition">
-                <ChevronUp className="w-4 h-4" strokeWidth={2.5} />
-              </button>
-              <button type="button" onClick={() => stepMin(-1)} className="text-white/60 hover:text-white transition">
-                <ChevronDown className="w-4 h-4" strokeWidth={2.5} />
-              </button>
-            </div>
-          </div>
-
-          {/* AM/PM */}
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={toggleAMPM}
-              className="text-[32px] font-bold text-white border-b-2 border-white/50 leading-none pb-0.5 w-[56px] text-center"
-              style={{ fontFamily: "Inter, sans-serif" }}
-            >
-              {isPM ? "PM" : "AM"}
-            </button>
-            <div className="flex flex-col gap-0.5">
-              <button type="button" onClick={() => { if (!isPM) toggleAMPM(); }} className="text-white/60 hover:text-white transition">
-                <ChevronUp className="w-4 h-4" strokeWidth={2.5} />
-              </button>
-              <button type="button" onClick={() => { if (isPM) toggleAMPM(); }} className="text-white/60 hover:text-white transition">
-                <ChevronDown className="w-4 h-4" strokeWidth={2.5} />
-              </button>
-            </div>
-          </div>
+        {/* Time input — same pattern as appointment edit modal */}
+        <div className="flex items-center gap-3 px-4 py-3.5 rounded-[14px] border border-white/20 bg-white/10 w-full">
+          <input
+            className="flex-1 bg-transparent text-[20px] font-bold text-white outline-none text-center"
+            style={{ fontFamily: "Inter, sans-serif", colorScheme: "dark" }}
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+          />
+          <Clock className="w-5 h-5 text-white/50 flex-shrink-0" />
         </div>
 
-        {/* Buttons */}
         <div className="flex gap-3 w-full mt-1">
           <button onClick={onCancel}
             className="flex-1 py-3.5 rounded-[14px] text-[13px] font-bold uppercase tracking-widest text-white"
             style={{ background: "#D97B7B" }}>
             CANCEL
           </button>
-          <button onClick={() => onSave(time)}
+          <button onClick={() => setSaved(true)}
             className="flex-1 py-3.5 rounded-[14px] text-[13px] font-bold uppercase tracking-widest text-white"
             style={{ background: "#4A7C59" }}>
             SAVE
