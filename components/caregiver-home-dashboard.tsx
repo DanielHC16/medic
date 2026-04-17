@@ -1090,11 +1090,16 @@ function ProgressDetailModal(props: {
 
       <Link
         href={props.manageHref}
-        className="mt-5 inline-flex items-center justify-center gap-1 rounded-full border border-[#2F3E34] bg-[#2F3E34] px-5 py-2 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#24302a]"
+        className="mt-5 inline-flex items-center justify-center gap-1 rounded-full border-2 px-5 py-2 text-[13px] font-semibold shadow-sm transition hover:opacity-90"
+        style={{
+          backgroundColor: "#2F3E34",
+          borderColor: "#2F3E34",
+          color: "#FFFFFF",
+        }}
         onClick={props.onClose}
       >
-        {props.manageLabel}
-        <ChevronRight className="h-4 w-4" />
+        <span style={{ color: "#FFFFFF" }}>{props.manageLabel}</span>
+        <ChevronRight className="h-4 w-4" style={{ color: "#FFFFFF" }} />
       </Link>
     </div>
   );
