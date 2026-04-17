@@ -3,6 +3,7 @@ import {
   archiveActivityPlan,
   updateActivityPlan,
 } from "@/lib/db/medic-data";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import {
   getOptionalNumber,
   getOptionalString,
@@ -45,6 +46,8 @@ export async function PATCH(
       title: getRequiredString(body.title, "Title"),
     });
 
+    revalidateMedicAppPaths();
+
     return Response.json({
       ok: true,
     });
@@ -82,6 +85,8 @@ export async function DELETE(
       activityPlanId: id,
       patientUserId: scope.patientUserId,
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       ok: true,

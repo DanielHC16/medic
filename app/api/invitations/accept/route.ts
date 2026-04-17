@@ -1,5 +1,6 @@
 import { getDefaultRouteForRole, requireCurrentUser } from "@/lib/auth/dal";
 import { acceptInvitation } from "@/lib/db/medic-data";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,6 +26,8 @@ export async function POST(request: Request) {
       code: body.code ?? "",
       userId: user.userId,
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       ok: true,

@@ -24,6 +24,10 @@ function formatRoleLabel(role: RoleSlug) {
   return role === "family_member" ? "Family member" : "Caregiver";
 }
 
+function getMemberDashboardRoute(role: Exclude<RoleSlug, "patient">) {
+  return role === "caregiver" ? "/caregiver/dashboard" : "/family/dashboard";
+}
+
 export function CareCircleManager({
   connections,
   invitations,
@@ -353,7 +357,7 @@ export function JoinPatientPanel(props: {
       }
 
       setMessage(`Join request ${payload.result?.relationshipStatus || "submitted"}.`);
-      router.push(payload.redirectTo || `/${props.role}/dashboard`);
+      router.push(payload.redirectTo || getMemberDashboardRoute(props.role));
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to join.");

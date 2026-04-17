@@ -38,6 +38,7 @@ export type AuthenticatedUser = SessionUser & {
   accountStatus: string;
   onboardingStatus: string;
   phone: string | null;
+  profileImageDataUrl: string | null;
   preferences: UserPreferences;
 };
 
@@ -82,6 +83,7 @@ export type MedicationRecord = {
   dosageValue: string;
   form: string;
   id: string;
+  imageDataUrl: string | null;
   instructions: string | null;
   isActive: boolean;
   latestLogStatus: MedicationLogStatus | null;
@@ -97,6 +99,7 @@ export type MedicationRecord = {
 export type MedicationLogRecord = {
   createdAt: string;
   id: string;
+  loggedForDate: string | null;
   medicationId: string;
   medicationName: string;
   notes: string | null;
@@ -184,6 +187,7 @@ export type LinkedPatientSummary = {
 };
 
 export type CareMemberDashboardData = {
+  activeLinkedPatients: LinkedPatientSummary[];
   linkedPatients: LinkedPatientSummary[];
   selectedPatient: PatientDashboardData | null;
   user: AuthenticatedUser;
@@ -191,6 +195,7 @@ export type CareMemberDashboardData = {
 
 export type SyncPushOperation = {
   clientRef: string;
+  localDate?: string | null;
   medicationId: string;
   notes?: string;
   scheduleId?: string | null;

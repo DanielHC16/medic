@@ -3,6 +3,7 @@ import {
   createAppointment,
   listAppointmentsForPatient,
 } from "@/lib/db/medic-data";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import { getOptionalString, getRequiredString } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -53,6 +54,8 @@ export async function POST(request: Request) {
       providerName: getOptionalString(body.providerName),
       title: getRequiredString(body.title, "Title"),
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       ok: true,

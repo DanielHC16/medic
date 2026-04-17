@@ -5,7 +5,9 @@ import { listLinkedPatientsForMember } from "@/lib/db/medic-data";
 
 export default async function FamilyProfilePage() {
   const user = await requireRole("family_member");
-  const records = await listLinkedPatientsForMember(user.userId);
+  const records = (await listLinkedPatientsForMember(user.userId)).filter(
+    (item) => item.relationshipStatus !== "revoked",
+  );
 
   return (
     <AppShell

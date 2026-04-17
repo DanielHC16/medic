@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth/dal";
 import { revokeRelationship } from "@/lib/db/medic-data";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,8 @@ export async function POST(
     patientUserId: user.userId,
     relationshipId: id,
   });
+
+  revalidateMedicAppPaths();
 
   return Response.json({
     ok: true,

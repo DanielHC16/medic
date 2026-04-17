@@ -1,5 +1,6 @@
 import { canManagePatientData, requirePatientScope } from "@/lib/auth/dal";
 import { recordMedicationLog } from "@/lib/db/medic-data";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import type { MedicationLogStatus } from "@/lib/medic-types";
 
 export const runtime = "nodejs";
@@ -15,6 +16,7 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
       clientRef?: string | null;
+      localDate?: string | null;
       medicationId?: string;
       notes?: string | null;
       patientUserId?: string | null;
@@ -38,6 +40,7 @@ export async function POST(request: Request) {
 
     const logId = await recordMedicationLog({
       clientRef: body.clientRef,
+      localDate: body.localDate,
       medicationId: body.medicationId ?? "",
       notes: body.notes,
       patientUserId: scope.patientUserId,
@@ -48,6 +51,8 @@ export async function POST(request: Request) {
       takenAt:
         status === "taken" ? body.takenAt ?? new Date().toISOString() : body.takenAt ?? null,
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       logId,

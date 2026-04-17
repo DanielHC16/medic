@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Home, Activity, UserPlus, Heart, User } from "lucide-react";
+import { type LucideIcon, Home, Activity, UserPlus, Heart, User } from "lucide-react";
 
 import { CareAccessStatusPanel } from "@/components/care-access-status-panel";
 import { MedicationManager } from "@/components/medication-manager";
@@ -44,19 +44,16 @@ export default async function CaregiverMonitoringPage({
         ])
       : [null, null, [], []];
 
-  // Logic to highlight the "Monitoring" tab
-  const currentPath = "/caregiver/monitoring";
-
   return (
     <div className="min-h-screen bg-[#Eef1f4] pb-32 font-sans">
       <main className="px-6 pt-10">
         
         {/* --- PATIENT SWITCHER --- */}
-        {dashboard.linkedPatients.length > 1 && (
+        {dashboard.activeLinkedPatients.length > 1 && (
           <section className="mb-6 rounded-[2rem] border border-black/5 bg-white/90 p-6 shadow-sm">
             <h2 className="text-xl font-semibold tracking-tight text-gray-900">Patient switcher</h2>
             <div className="mt-4 flex flex-wrap gap-3">
-              {dashboard.linkedPatients.map((patient) => (
+              {dashboard.activeLinkedPatients.map((patient) => (
                 <Link
                   key={patient.relationshipId}
                   href={`/caregiver/monitoring?patientId=${patient.patientUserId}`}
@@ -106,10 +103,15 @@ export default async function CaregiverMonitoringPage({
             <div className="space-y-6 rounded-[2.5rem] bg-white/40 p-2">
               <MedicationManager
                 canManage
+                contactMethod={user.preferences.preferredContactMethod}
                 items={selectedPatient.medications}
                 logs={medicationLogs}
+                patientDisplayName={`${selectedPatient.user.firstName} ${selectedPatient.user.lastName}`}
                 patientUserId={selectedPatientId}
+                role={user.role}
                 summary={medicationSummary}
+                timeFormat={user.preferences.timeFormat}
+                viewerDisplayName={`${user.firstName} ${user.lastName}`}
               />
               <WellnessManager
                 activityLogs={activityLogs}
@@ -136,7 +138,15 @@ export default async function CaregiverMonitoringPage({
   );
 }
 
-function NavIcon({ href, icon: Icon, isActive }: { href: string; icon: any; isActive: boolean }) {
+function NavIcon({
+  href,
+  icon: Icon,
+  isActive,
+}: {
+  href: string;
+  icon: LucideIcon;
+  isActive: boolean;
+}) {
   return (
     <Link
       href={href}

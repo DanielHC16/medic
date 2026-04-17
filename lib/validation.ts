@@ -52,6 +52,28 @@ export function getStringArray(value: unknown) {
     .filter(Boolean);
 }
 
+export function getOptionalImageDataUrl(value: unknown, fieldLabel = "Image") {
+  if (value == null || value === "") {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    throw new Error(`${fieldLabel} must be a valid uploaded image.`);
+  }
+
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue.startsWith("data:image/")) {
+    throw new Error(`${fieldLabel} must be a valid image upload.`);
+  }
+
+  if (trimmedValue.length > 2_000_000) {
+    throw new Error(`${fieldLabel} is too large. Please choose a smaller image.`);
+  }
+
+  return trimmedValue;
+}
+
 export function assertRole(value: unknown) {
   if (
     value !== "patient" &&
