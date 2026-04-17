@@ -1,7 +1,16 @@
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 
-export default function StartPage() {
+import { getCurrentUser, getDefaultRouteForRole } from '@/lib/auth/dal';
+
+export default async function StartPage() {
+  const user = await getCurrentUser();
+
+  if (user) {
+    redirect(getDefaultRouteForRole(user));
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-between bg-[#EFF3F0] overflow-hidden relative">
       
