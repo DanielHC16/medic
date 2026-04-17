@@ -1,16 +1,23 @@
 import Link from "next/link";
 import Image from "next/image";
 import { MedicationReminderPanel } from "@/components/medication-reminder-panel";
-import { getPatientDashboardData, listMedicationLogsForPatient } from "@/lib/db/medic-data";
-import { formatDateTime, formatTimeList } from "@/lib/display";
+import {
+  getActivitySummary,
+  getMedicationAdherenceSummary,
+  getPatientDashboardData,
+  listMedicationLogsForPatient,
+} from "@/lib/db/medic-data";
+import { formatDate, formatTimeList } from "@/lib/display";
 import { getNextReminderSlot } from "@/lib/medication-reminders";
 import { requireRole } from "@/lib/auth/dal";
 
 export default async function PatientDashboardPage() {
   const user = await requireRole("patient");
-  const [dashboard, medicationLogs] = await Promise.all([
+  const [dashboard, medicationLogs, activitySummary, medicationSummary] = await Promise.all([
     getPatientDashboardData(user.userId),
     listMedicationLogsForPatient(user.userId, 12),
+    getActivitySummary(user.userId),
+    getMedicationAdherenceSummary(user.userId),
   ]);
 
   if (!dashboard) {
@@ -53,6 +60,32 @@ export default async function PatientDashboardPage() {
       ? formatTimeList(nextMedication.scheduleTimes)
       : "Not scheduled";
   const nextAppointment = dashboard.appointments[0];
+  const takenMedicationCount = Math.min(
+    medicationSummary.takenToday,
+    medicationSummary.dueToday,
+  );
+  const medicationAttentionCount = Math.min(
+    medicationSummary.missedToday + medicationSummary.skippedToday,
+    Math.max(medicationSummary.dueToday - takenMedicationCount, 0),
+  );
+  const medicationPendingCount = Math.max(
+    medicationSummary.dueToday -
+      takenMedicationCount -
+      medicationAttentionCount,
+    0,
+  );
+  const medicationProgressStyle = getMedicationProgressStyle({
+    dueToday: medicationSummary.dueToday,
+    pendingCount: medicationPendingCount,
+    takenCount: takenMedicationCount,
+  });
+  const workoutProgressLabel =
+    activitySummary.activePlans > 0
+      ? `${activitySummary.completedToday}/${activitySummary.activePlans}`
+      : "0/0";
+  const appointmentScheduleHref = nextAppointment
+    ? `/patient/schedule?view=appointments&appointmentId=${nextAppointment.id}`
+    : "/patient/schedule?view=appointments";
 
   return (
     <main className="min-h-screen bg-[#EFF3F1] pb-32 px-5 pt-12 font-sans overflow-x-hidden relative">
@@ -76,8 +109,18 @@ export default async function PatientDashboardPage() {
             href="/profile"
             className="w-[42px] h-[42px] bg-black rounded-full flex items-center justify-center shadow-md overflow-hidden border-2 border-transparent"
           >
-            {/* Replace with User Avatar Image if available */}
-            <UserSolidIcon className="w-6 h-6 text-white" />
+            {user.profileImageDataUrl ? (
+              <Image
+                src={user.profileImageDataUrl}
+                alt={`${user.firstName} ${user.lastName} profile photo`}
+                width={42}
+                height={42}
+                className="h-full w-full object-cover"
+                unoptimized
+              />
+            ) : (
+              <UserSolidIcon className="w-6 h-6 text-white" />
+            )}
           </Link>
         </div>
       </header>
@@ -89,8 +132,8 @@ export default async function PatientDashboardPage() {
           <PillIcon className="absolute top-4 right-4 w-6 h-6 opacity-80" />
           <h2 className="text-[15px] font-medium mb-1">Medicine Taken today</h2>
           <p className="text-[40px] font-light tracking-wide flex items-baseline gap-2">
-            {dashboard.medicationSummary.takenToday} 
-            <span className="text-[22px] font-normal opacity-90">/ {dashboard.medicationSummary.dueToday}</span>
+            {medicationSummary.takenToday}
+            <span className="text-[22px] font-normal opacity-90">/ {medicationSummary.dueToday}</span>
           </p>
         </div>
 
@@ -137,24 +180,37 @@ export default async function PatientDashboardPage() {
         </div>
 
         {/* Upcoming Appointments Section */}
-        <h3 className="text-[18px] font-bold text-[#1A231D] mt-3 mb-1 px-1">
+        <div className="mt-3 flex items-center justify-between px-1">
+          <h3 className="text-[18px] font-bold text-[#1A231D]">
           Upcoming Appointments:
-        </h3>
+          </h3>
+          <Link
+            href={appointmentScheduleHref}
+            className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#568164]"
+          >
+            View schedule
+          </Link>
+        </div>
 
         {dashboard.appointments.length === 0 ? (
            <div className="bg-[#FAFBF9] rounded-[24px] p-5 shadow-sm text-sm text-[#73847B] text-center">
              No upcoming appointments.
            </div>
         ) : (
-          <div className="bg-[#FAFBF9] rounded-[24px] p-5 shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
+          <Link
+            href={appointmentScheduleHref}
+            className="block bg-[#FAFBF9] rounded-[24px] p-5 shadow-[0_2px_10px_rgba(0,0,0,0.03)]"
+          >
             <div className="flex justify-between items-start mb-3">
               <div>
-                <span className="text-[15px] font-bold text-[#1A231D] block mb-0.5">Today</span>
+                <span className="text-[15px] font-bold text-[#1A231D] block mb-0.5">
+                  {formatDate(nextAppointment.appointmentAt)}
+                </span>
                 <h4 className="text-[16px] font-bold text-[#425F4C]">{nextAppointment.title}</h4>
               </div>
               <div className="flex items-center gap-2 text-[#1A231D]">
                 <span className="text-[15px] font-semibold">
-                   {formatDateTime(nextAppointment.appointmentAt).split(',')[1] || "9:00 AM"} 
+                   {getAppointmentTimeLabel(nextAppointment.appointmentAt, user.preferences.timeFormat)}
                 </span>
                 <BellIcon className="w-5 h-5" />
               </div>
@@ -162,8 +218,11 @@ export default async function PatientDashboardPage() {
             <div className="text-[14px] text-[#4A5D52] space-y-1.5">
               <p><span className="text-[#73847B]">Doctor:</span> {nextAppointment.providerName || "Pending"}</p>
               <p><span className="text-[#73847B]">Location:</span> {nextAppointment.location || "Pending"}</p>
+              <p className="pt-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#568164]">
+                Open appointment details
+              </p>
             </div>
-          </div>
+          </Link>
         )}
 
         {/* Progress Summary Section */}
@@ -175,42 +234,18 @@ export default async function PatientDashboardPage() {
           
           {/* Donut Chart Card */}
           <div className="bg-[#FAFBF9] rounded-[24px] p-4 flex flex-col items-center shadow-[0_2px_10px_rgba(0,0,0,0.03)] aspect-[4/5] relative">
-            
-            {/* Precision SVG Donut Chart */}
-            <div className="relative w-[130px] h-[130px] mb-4">
-              {/* Math breakdown:
-                Radius (r) = 38. Circumference (C) = 2 * pi * 38 = 238.76
-                Green segment: 50% (119.38 length), starting at 6 o'clock
-                Yellow segment: 33.3% (79.58 length), starting at 12 o'clock
-                Teal segment: 16.6% (39.79 length), starting at 4 o'clock
-              */}
-              <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible">
-                <g transform="rotate(-90 50 50)">
-                  
-                  {/* Teal (Missed) - 4 to 6 o'clock */}
-                  <circle cx="50" cy="50" r="38" fill="none" stroke="#C3E0DE" strokeWidth="14" 
-                          strokeDasharray="39.79 238.76" strokeDashoffset="-79.58" />
-                  
-                  {/* Green (Taken) - 6 to 12 o'clock */}
-                  <circle cx="50" cy="50" r="38" fill="none" stroke="#8BA488" strokeWidth="14" 
-                          strokeDasharray="119.38 238.76" strokeDashoffset="-119.38" />
-                  
-                  {/* Yellow (Pending) - 12 to 4 o'clock */}
-                  <circle cx="50" cy="50" r="38" fill="none" stroke="#F1D262" strokeWidth="14" 
-                          strokeDasharray="79.58 238.76" strokeDashoffset="0" />
-                </g>
-
-                {/* White stroke gaps slicing the donut (matched to background) */}
-                <line x1="50" y1="50" x2="50" y2="-10" stroke="#FAFBF9" strokeWidth="5" />       {/* 12 o'clock */}
-                <line x1="50" y1="50" x2="50" y2="110" stroke="#FAFBF9" strokeWidth="5" />       {/* 6 o'clock */}
-                <line x1="50" y1="50" x2="102" y2="80" stroke="#FAFBF9" strokeWidth="5" />       {/* 4 o'clock */}
-              </svg>
-              
-              {/* Inner Text */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pt-1">
-                <span className="text-[26px] font-bold text-[#1A231D] leading-none mb-0.5">2/5</span>
-                <span className="text-[10px] text-[#73847B] font-medium leading-[1.2] text-center">
-                  Medications<br/>Taken
+            <div
+              className="relative mb-4 flex h-[130px] w-[130px] items-center justify-center rounded-full"
+              style={medicationProgressStyle}
+            >
+              <div className="flex h-[94px] w-[94px] flex-col items-center justify-center rounded-full bg-[#FAFBF9]">
+                <span className="mb-0.5 text-[26px] font-bold leading-none text-[#1A231D]">
+                  {medicationSummary.takenToday}/{medicationSummary.dueToday}
+                </span>
+                <span className="text-center text-[10px] font-medium leading-[1.2] text-[#73847B]">
+                  Medications
+                  <br />
+                  Taken
                 </span>
               </div>
             </div>
@@ -227,7 +262,7 @@ export default async function PatientDashboardPage() {
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-1.5 h-1.5 rounded-full bg-[#D49191]" />
-                <span className="text-[9px] font-medium text-[#73847B]">Missed</span>
+                <span className="text-[9px] font-medium text-[#73847B]">Attention</span>
               </div>
             </div>
           </div>
@@ -244,9 +279,16 @@ export default async function PatientDashboardPage() {
               />
             </div>
             <div className="mt-auto flex flex-col items-center pb-1">
-              <span className="text-[22px] font-bold text-[#1A231D] leading-none mb-1">1/2</span>
+              <span className="text-[22px] font-bold text-[#1A231D] leading-none mb-1">
+                {workoutProgressLabel}
+              </span>
               <span className="text-[11px] text-[#73847B] font-medium leading-snug">
-                Workouts<br/>Completed
+                Routines
+                <br />
+                Completed
+              </span>
+              <span className="mt-2 text-[10px] font-medium uppercase tracking-[0.16em] text-[#73847B]">
+                {activitySummary.missedToday} missed today
               </span>
             </div>
           </div>
@@ -364,4 +406,42 @@ function UserOutlineIcon(props: React.SVGProps<SVGSVGElement>) {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
     </svg>
   );
+}
+
+function getAppointmentTimeLabel(value: string, timeFormat: "12h" | "24h") {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-PH", {
+    hour: "numeric",
+    hour12: timeFormat !== "24h",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function getMedicationProgressStyle(props: {
+  dueToday: number;
+  pendingCount: number;
+  takenCount: number;
+}) {
+  if (props.dueToday <= 0) {
+    return {
+      background: "conic-gradient(#DCE4DE 0deg 360deg)",
+    };
+  }
+
+  const takenDegrees = (props.takenCount / props.dueToday) * 360;
+  const pendingDegrees = (props.pendingCount / props.dueToday) * 360;
+  const attentionStart = takenDegrees + pendingDegrees;
+
+  return {
+    background: `conic-gradient(
+      #8BA488 0deg ${takenDegrees}deg,
+      #F1D262 ${takenDegrees}deg ${attentionStart}deg,
+      #D49191 ${attentionStart}deg 360deg
+    )`,
+  };
 }

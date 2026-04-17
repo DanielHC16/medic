@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ProfilePageContent } from "@/components/profile-page-content";
 import { getSettingsRouteForRole, requireRole } from "@/lib/auth/dal";
 import { listPatientConnections } from "@/lib/db/medic-data";
@@ -28,7 +29,18 @@ export default async function ProfilePage() {
         <div className="max-w-2xl mx-auto flex flex-col items-start gap-4">
           <div className="flex justify-between w-full items-start">
             <div className="w-24 h-24 bg-[#E0E5E2] rounded-full border-4 border-[#4A5D52] flex items-center justify-center overflow-hidden shadow-xl">
-              <UserSolidIcon className="w-16 h-16 text-[#334237]" />
+              {user.profileImageDataUrl ? (
+                <Image
+                  src={user.profileImageDataUrl}
+                  alt={`${user.firstName} ${user.lastName} profile photo`}
+                  width={96}
+                  height={96}
+                  className="h-full w-full object-cover"
+                  unoptimized
+                />
+              ) : (
+                <UserSolidIcon className="w-16 h-16 text-[#334237]" />
+              )}
             </div>
             <Link
               href={getSettingsRouteForRole(user.role)}
@@ -38,7 +50,7 @@ export default async function ProfilePage() {
             </Link>
           </div>
           <h1 className="text-3xl font-bold text-white mt-2">
-            {user.firstName || "User"}
+            {[user.firstName, user.lastName].filter(Boolean).join(" ") || "User"}
           </h1>
         </div>
       </section>
@@ -47,7 +59,7 @@ export default async function ProfilePage() {
         {/* We wrap ProfilePageContent but inject global CSS classes or Tailwind to force the "Underline" UI */}
         <div className="profile-ui-custom">
           <ProfilePageContent
-            heading="Name:"
+            heading="Profile details"
             records={records}
             shortcuts={[
               { href: "/patient/health-info", label: "Health Info" },

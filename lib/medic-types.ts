@@ -38,6 +38,7 @@ export type AuthenticatedUser = SessionUser & {
   accountStatus: string;
   onboardingStatus: string;
   phone: string | null;
+  profileImageDataUrl: string | null;
   preferences: UserPreferences;
 };
 

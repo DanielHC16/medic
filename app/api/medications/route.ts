@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       dosageValue: getRequiredString(body.dosageValue, "Dosage value"),
       form: getRequiredString(body.form, "Medication form"),
       frequencyType: getRequiredString(body.frequencyType, "Frequency"),
-      imageDataUrl: getOptionalImageDataUrl(body.imageDataUrl),
+      imageDataUrl: getOptionalImageDataUrl(body.imageDataUrl, "Medication image"),
       instructions: getOptionalString(body.instructions),
       name: getRequiredString(body.name, "Medication name"),
       patientUserId: scope.patientUserId,

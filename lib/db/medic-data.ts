@@ -35,6 +35,7 @@ const FAMILY_ROLE_ID = "role-family-member";
 
 type UserRow = {
   account_status: string;
+  avatar_image_data_url: string | null;
   daily_summary_enabled: boolean;
   email: string;
   first_name: string;
@@ -733,6 +734,7 @@ const schemaStatements = [
   `alter table users add column if not exists large_text_enabled boolean not null default false`,
   `alter table users add column if not exists high_contrast_enabled boolean not null default false`,
   `alter table users add column if not exists daily_summary_enabled boolean not null default true`,
+  `alter table users add column if not exists avatar_image_data_url text`,
   `create unique index if not exists users_phone_unique_idx on users(phone) where phone is not null`,
   `create table if not exists patient_profiles (
     user_id text primary key references users(id) on delete cascade,
@@ -931,6 +933,7 @@ function mapUserRow(row: UserRow): AuthenticatedUser {
     lastName: row.last_name,
     onboardingStatus: row.onboarding_status,
     phone: row.phone,
+    profileImageDataUrl: row.avatar_image_data_url,
     preferences: {
       dailySummaryEnabled: row.daily_summary_enabled,
       highContrastEnabled: row.high_contrast_enabled,
@@ -1702,6 +1705,7 @@ export async function getUserById(userId: string) {
        users.last_name,
        users.account_status,
        users.onboarding_status,
+       users.avatar_image_data_url,
        users.preferred_contact_method,
        users.time_format,
        users.large_text_enabled,
@@ -1730,6 +1734,7 @@ export async function getUserForAuth(identifier: string) {
        users.last_name,
        users.account_status,
        users.onboarding_status,
+       users.avatar_image_data_url,
        users.preferred_contact_method,
        users.time_format,
        users.large_text_enabled,
@@ -1908,6 +1913,7 @@ export async function updateUserAccount(input: {
   firstName: string;
   lastName: string;
   phone?: string | null;
+  profileImageDataUrl?: string | null;
   userId: string;
 }) {
   await ensureMedicSchema();
@@ -1932,13 +1938,15 @@ export async function updateUserAccount(input: {
          phone = $2,
          first_name = $3,
          last_name = $4,
+         avatar_image_data_url = $5,
          updated_at = now()
-     where id = $5`,
+     where id = $6`,
     [
       nextEmail,
       nextPhone,
       input.firstName.trim(),
       input.lastName.trim(),
+      input.profileImageDataUrl || null,
       input.userId,
     ],
   );
