@@ -36,6 +36,7 @@ const FAMILY_ROLE_ID = "role-family-member";
 type UserRow = {
   account_status: string;
   avatar_image_data_url: string | null;
+  chatbot_enabled: boolean;
   daily_summary_enabled: boolean;
   email: string;
   first_name: string;
@@ -734,6 +735,7 @@ const schemaStatements = [
   `alter table users add column if not exists large_text_enabled boolean not null default false`,
   `alter table users add column if not exists high_contrast_enabled boolean not null default false`,
   `alter table users add column if not exists daily_summary_enabled boolean not null default true`,
+  `alter table users add column if not exists chatbot_enabled boolean not null default true`,
   `alter table users add column if not exists avatar_image_data_url text`,
   `create unique index if not exists users_phone_unique_idx on users(phone) where phone is not null`,
   `create table if not exists patient_profiles (
@@ -935,6 +937,7 @@ function mapUserRow(row: UserRow): AuthenticatedUser {
     phone: row.phone,
     profileImageDataUrl: row.avatar_image_data_url,
     preferences: {
+      chatbotEnabled: row.chatbot_enabled,
       dailySummaryEnabled: row.daily_summary_enabled,
       highContrastEnabled: row.high_contrast_enabled,
       largeTextEnabled: row.large_text_enabled,
@@ -1710,7 +1713,8 @@ export async function getUserById(userId: string) {
        users.time_format,
        users.large_text_enabled,
        users.high_contrast_enabled,
-       users.daily_summary_enabled
+       users.daily_summary_enabled,
+       users.chatbot_enabled
      from users
      join roles on roles.id = users.role_id
      where users.id = $1`,
@@ -1740,6 +1744,7 @@ export async function getUserForAuth(identifier: string) {
        users.large_text_enabled,
        users.high_contrast_enabled,
        users.daily_summary_enabled,
+       users.chatbot_enabled,
        users.password_hash,
        users.password_salt
      from users
@@ -1993,6 +1998,7 @@ export async function updatePatientHealthProfile(input: {
 }
 
 export async function updateUserPreferences(input: {
+  chatbotEnabled: boolean;
   dailySummaryEnabled: boolean;
   highContrastEnabled: boolean;
   largeTextEnabled: boolean;
@@ -2009,14 +2015,16 @@ export async function updateUserPreferences(input: {
          large_text_enabled = $3,
          high_contrast_enabled = $4,
          daily_summary_enabled = $5,
+         chatbot_enabled = $6,
          updated_at = now()
-     where id = $6`,
+     where id = $7`,
     [
       normalizePreferredContactMethod(input.preferredContactMethod),
       normalizeTimeFormat(input.timeFormat),
       input.largeTextEnabled,
       input.highContrastEnabled,
       input.dailySummaryEnabled,
+      input.chatbotEnabled,
       input.userId,
     ],
   );

@@ -18,6 +18,7 @@ export default async function PatientCareCirclePage() {
       user={user}
       title="Care Circle"
       description="Generate invite codes, deep links, and QR shares, approve pending requests, and review who can access the patient profile."
+      patientBottomNavActive="care-circle"
       links={[
         { href: "/patient/dashboard", label: "Home" },
         { href: "/patient/medications", label: "Medications" },

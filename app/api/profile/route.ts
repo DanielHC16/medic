@@ -10,6 +10,15 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+export async function GET() {
+  const user = await requireCurrentUser();
+
+  return Response.json({
+    ok: true,
+    user,
+  });
+}
+
 export async function PATCH(request: Request) {
   try {
     const user = await requireCurrentUser();
