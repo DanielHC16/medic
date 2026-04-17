@@ -10,7 +10,6 @@ import {
   CalendarDays,
   MapPin,
   Pill,
-  QrCode,
   Stethoscope,
   Sun,
   UserRound,
@@ -471,11 +470,17 @@ export function CaregiverHomeDashboard(props: {
         <div className="flex items-center gap-2.5">
           <Link
             href={joinPath}
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-md"
-            style={{ background: "#2F3E34" }}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-[#2F3E34] bg-white shadow-md"
             aria-label="Open patient join page"
           >
-            <QrCode className="h-5 w-5" />
+            <Image
+              src="/medic-logo.png"
+              alt="MEDIC logo"
+              width={28}
+              height={28}
+              className="h-7 w-7 object-contain"
+              priority
+            />
           </Link>
           <Link href={profilePath} aria-label="Open profile">
             <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-[#2F3E34] bg-[#E5E7EB]">
