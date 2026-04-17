@@ -68,7 +68,11 @@ function decodeSession(token: string | undefined) {
 
 export async function createUserSession(user: SessionUser) {
   const payload: SessionPayload = {
-    ...user,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    role: user.role,
+    userId: user.userId,
     exp: Date.now() + SESSION_DURATION_SECONDS * 1000,
   };
   const cookieStore = await cookies();

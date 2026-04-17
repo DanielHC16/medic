@@ -1,201 +1,181 @@
-"use client";
-
 import Link from "next/link";
-import { useState } from "react";
-import { Activity, Calendar, ChevronLeft, Pill, UserRound } from "lucide-react";
+import { ChevronLeft, UserRound } from "lucide-react";
 
 import { CareMemberBottomNav } from "@/components/care-member-bottom-nav";
+import { FamilyUpdatesTabs } from "@/components/family-updates-tabs";
+import { requireRole } from "@/lib/auth/dal";
+import {
+  getCareMemberDashboardData,
+  listActivityLogsForPatient,
+  listAppointmentsForPatient,
+  listMedicationLogsForPatient,
+} from "@/lib/db/medic-data";
 
-type Tab = "medication" | "schedule" | "activities";
+type FamilyUpdatesPageProps = {
+  searchParams: Promise<{
+    patientId?: string;
+  }>;
+};
 
-// Static sample data
-const SAMPLE_PATIENTS = [
-  { id: "1", name: "Elderly 1" },
-  { id: "2", name: "Elderly 2" },
-];
+function getManilaDateKey(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
 
-const SAMPLE_MED_LOGS = [
-  { id: "m1", time: "10:05 AM", isToday: true, actor: "Caregiver", name: "Acetaminophen" },
-  { id: "m2", time: "8:01 PM", isToday: false, actor: "Caregiver", name: "Acetaminophen" },
-  { id: "m3", time: "2:12 PM", isToday: false, actor: "Caregiver", name: "Acetaminophen" },
-  { id: "m4", time: "8:09 AM", isToday: false, actor: "Caregiver", name: "Acetaminophen" },
-];
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
 
-const SAMPLE_SCHEDULE_LOGS = [
-  { id: "s1", time: "10:00 AM", isToday: true, title: "Check Up", provider: "Dr. Who" },
-  { id: "s2", time: "3:00 PM", isToday: false, title: "Follow-up Visit", provider: "Dr. Who" },
-];
-
-const SAMPLE_ACTIVITY_LOGS = [
-  { id: "a1", time: "9:00 AM", isToday: true, title: "Morning Walk", status: "done" },
-  { id: "a2", time: "7:30 AM", isToday: false, title: "Breathing Exercise", status: "done" },
-  { id: "a3", time: "4:00 PM", isToday: false, title: "Light Stretching", status: "missed" },
-];
-
-// Log card 
-function LogCard({ time, isToday, children }: { time: string; isToday: boolean; children: React.ReactNode }) {
-  return (
-    <div className="pd-card p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${isToday ? "bg-blue-400" : "bg-[#4A7C59]"}`} />
-        <span className="text-[15px] font-bold">{time}</span>
-      </div>
-      <div className="ml-5">{children}</div>
-    </div>
-  );
+  return date.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 }
 
-// Page
-export default function FamilyUpdatesPage() {
-  const [tab, setTab] = useState<Tab>("medication");
-  const [activePatient, setActivePatient] = useState("1");
+function toManilaTimeLabel(value: string | null | undefined) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    hour12: true,
+    minute: "2-digit",
+    timeZone: "Asia/Manila",
+  });
+}
+
+export default async function FamilyUpdatesPage({ searchParams }: FamilyUpdatesPageProps) {
+  const user = await requireRole("family_member");
+  const resolvedSearchParams = await searchParams;
+  const dashboard = await getCareMemberDashboardData({
+    patientUserId: resolvedSearchParams.patientId ?? null,
+    userId: user.userId,
+  });
+
+  if (!dashboard) {
+    return null;
+  }
+
+  const selectedPatient = dashboard.selectedPatient;
+  const selectedPatientId = selectedPatient?.user.userId ?? null;
+
+  const [medicationLogs, activityLogs, appointments] = selectedPatientId
+    ? await Promise.all([
+        listMedicationLogsForPatient(selectedPatientId, 30),
+        listActivityLogsForPatient(selectedPatientId, 30),
+        listAppointmentsForPatient(selectedPatientId, { includeCancelled: true }),
+      ])
+    : [[], [], []];
+
+  const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+
+  const medicationItems = medicationLogs.map((log) => {
+    const dateKey =
+      getManilaDateKey(log.takenAt) ??
+      log.loggedForDate ??
+      getManilaDateKey(log.scheduledFor) ??
+      getManilaDateKey(log.createdAt);
+
+    return {
+      id: log.id,
+      dateKey: dateKey ?? "",
+      isToday: dateKey === todayKey,
+      time: toManilaTimeLabel(log.takenAt ?? log.scheduledFor ?? log.createdAt),
+      actor: log.recordedByDisplayName ?? "Someone",
+      name: log.medicationName,
+      status: log.status,
+    };
+  });
+
+  const scheduleItems = appointments.map((appointment) => {
+    const dateKey = getManilaDateKey(appointment.appointmentAt);
+
+    return {
+      id: appointment.id,
+      dateKey: dateKey ?? "",
+      isToday: dateKey === todayKey,
+      time: toManilaTimeLabel(appointment.appointmentAt),
+      title: appointment.title,
+      provider: appointment.providerName ?? "",
+      status: appointment.status,
+    };
+  });
+
+  const activityItems = activityLogs.map((log) => {
+    const dateKey =
+      getManilaDateKey(log.completedAt) ??
+      getManilaDateKey(log.scheduledFor) ??
+      getManilaDateKey(log.createdAt);
+
+    return {
+      id: log.id,
+      dateKey: dateKey ?? "",
+      isToday: dateKey === todayKey,
+      time: toManilaTimeLabel(log.completedAt ?? log.scheduledFor ?? log.createdAt),
+      title: log.activityTitle,
+      status: log.completionStatus,
+    };
+  });
 
   return (
-    <main className="pd-page pb-24"> {/* Increased padding bottom to clear the nav */}
-
-      {/* Back */}
+    <main className="pd-page pb-24">
       <div className="mb-4">
-        <Link href="/family/profile"
+        <Link
+          href="/family/dashboard"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-bold !text-white"
-          style={{ background: "#4A7C59" }}>
+          style={{ background: "#4A7C59" }}
+        >
           <ChevronLeft className="w-4 h-4" /> BACK
         </Link>
       </div>
 
-      {/* Title */}
       <h1 className="pd-heading mb-4">Activity Log</h1>
 
-      {/* Patient pills */}
-      <div className="flex gap-2 mb-4">
-        {SAMPLE_PATIENTS.map((p) => {
-          const isActive = p.id === activePatient;
-          return (
-            <button key={p.id} type="button" onClick={() => setActivePatient(p.id)}
-              className={`cg-patient-pill ${isActive ? "cg-patient-pill-active" : "cg-patient-pill-inactive"}`}>
-              <div className="cg-patient-icon"><UserRound className="w-4 h-4" /></div>
-              <span className="truncate">{p.name}</span>
-            </button>
-          );
-        })}
-      </div>
+      {dashboard.activeLinkedPatients.length > 0 ? (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {dashboard.activeLinkedPatients.map((patient) => {
+            const isActive = patient.patientUserId === selectedPatientId;
 
-      {/* Tab filter */}
-      <div className="flex gap-1 mb-5 bg-[#F6F7F2] rounded-[14px] p-1 border border-[#2F3E34]/10">
-        {(["medication", "schedule", "activities"] as Tab[]).map((t) => (
-          <button key={t} type="button" onClick={() => setTab(t)}
-            className={`flex-1 py-2.5 rounded-[10px] text-[13px] font-bold capitalize transition ${
-              tab === t ? "bg-[#4A7C59] text-white shadow" : "text-[#2F3E34]/60"
-            }`}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* Medication tab */}
-      {tab === "medication" && (
-        <>
-          <h3 className="pd-section-heading mb-3">Today</h3>
-          <div className="flex flex-col gap-3 mb-5">
-            {SAMPLE_MED_LOGS.filter((l) => l.isToday).map((l) => (
-              <LogCard key={l.id} time={l.time} isToday>
-                <div className="flex items-center gap-3">
-                  <Pill className="w-5 h-5 text-[#2F3E34] flex-shrink-0" />
-                  <div>
-                    <p className="text-[14px] font-bold">{l.actor} logged Medication</p>
-                    <p className="text-[13px] opacity-60">| {l.name}</p>
-                  </div>
+            return (
+              <Link
+                key={patient.relationshipId}
+                href={`/family/updates?patientId=${patient.patientUserId}`}
+                className={`cg-patient-pill ${
+                  isActive ? "cg-patient-pill-active" : "cg-patient-pill-inactive"
+                }`}
+              >
+                <div className="cg-patient-icon">
+                  <UserRound className="w-4 h-4" />
                 </div>
-              </LogCard>
-            ))}
-          </div>
+                <span className="truncate">{patient.patientDisplayName}</span>
+              </Link>
+            );
+          })}
+        </div>
+      ) : null}
 
-          <h3 className="pd-section-heading mb-3">Yesterday</h3>
-          <div className="flex flex-col gap-3">
-            {SAMPLE_MED_LOGS.filter((l) => !l.isToday).map((l) => (
-              <LogCard key={l.id} time={l.time} isToday={false}>
-                <div className="flex items-center gap-3">
-                  <Pill className="w-5 h-5 text-[#2F3E34] flex-shrink-0" />
-                  <div>
-                    <p className="text-[14px] font-bold">{l.actor} logged Medication</p>
-                    <p className="text-[13px] opacity-60">| {l.name}</p>
-                  </div>
-                </div>
-              </LogCard>
-            ))}
-          </div>
-        </>
+      {!selectedPatient ? (
+        <div className="rounded-[2rem] border border-black/5 bg-white/90 p-6 shadow-sm">
+          <p className="text-sm leading-6 text-gray-500">
+            No active linked patient. Join a patient first to view updates.
+          </p>
+          <Link href="/family/join" className="medic-button medic-button-primary mt-4">
+            Connect to a patient
+          </Link>
+        </div>
+      ) : (
+        <FamilyUpdatesTabs
+          medicationItems={medicationItems}
+          scheduleItems={scheduleItems}
+          activityItems={activityItems}
+        />
       )}
 
-      {/* Schedule tab */}
-      {tab === "schedule" && (
-        <>
-          <h3 className="pd-section-heading mb-3">Today</h3>
-          <div className="flex flex-col gap-3 mb-5">
-            {SAMPLE_SCHEDULE_LOGS.filter((l) => l.isToday).map((l) => (
-              <LogCard key={l.id} time={l.time} isToday>
-                <div className="flex items-center gap-3">
-                  <Calendar className="w-5 h-5 text-[#2F3E34] flex-shrink-0" />
-                  <div>
-                    <p className="text-[14px] font-bold">{l.title}</p>
-                    <p className="text-[13px] opacity-60">| {l.provider}</p>
-                  </div>
-                </div>
-              </LogCard>
-            ))}
-          </div>
-          <h3 className="pd-section-heading mb-3">Yesterday</h3>
-          <div className="flex flex-col gap-3">
-            {SAMPLE_SCHEDULE_LOGS.filter((l) => !l.isToday).map((l) => (
-              <LogCard key={l.id} time={l.time} isToday={false}>
-                <div className="flex items-center gap-3">
-                  <Calendar className="w-5 h-5 text-[#2F3E34] flex-shrink-0" />
-                  <div>
-                    <p className="text-[14px] font-bold">{l.title}</p>
-                    <p className="text-[13px] opacity-60">| {l.provider}</p>
-                  </div>
-                </div>
-              </LogCard>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Activities tab */}
-      {tab === "activities" && (
-        <>
-          <h3 className="pd-section-heading mb-3">Today</h3>
-          <div className="flex flex-col gap-3 mb-5">
-            {SAMPLE_ACTIVITY_LOGS.filter((l) => l.isToday).map((l) => (
-              <LogCard key={l.id} time={l.time} isToday>
-                <div className="flex items-center gap-3">
-                  <Activity className="w-5 h-5 text-[#2F3E34] flex-shrink-0" />
-                  <div>
-                    <p className="text-[14px] font-bold">{l.title}</p>
-                    <p className="text-[13px] opacity-60">| {l.status}</p>
-                  </div>
-                </div>
-              </LogCard>
-            ))}
-          </div>
-          <h3 className="pd-section-heading mb-3">Yesterday</h3>
-          <div className="flex flex-col gap-3">
-            {SAMPLE_ACTIVITY_LOGS.filter((l) => !l.isToday).map((l) => (
-              <LogCard key={l.id} time={l.time} isToday={false}>
-                <div className="flex items-center gap-3">
-                  <Activity className="w-5 h-5 text-[#2F3E34] flex-shrink-0" />
-                  <div>
-                    <p className="text-[14px] font-bold">{l.title}</p>
-                    <p className="text-[13px] opacity-60">| {l.status}</p>
-                  </div>
-                </div>
-              </LogCard>
-            ))}
-          </div>
-        </>
-      )}
-
-      <CareMemberBottomNav activeItem="activity" role="family_member" />
-
+      <CareMemberBottomNav
+        activeItem="activity"
+        patientUserId={selectedPatientId}
+        role="family_member"
+      />
     </main>
   );
 }
