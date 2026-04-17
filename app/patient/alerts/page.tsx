@@ -111,6 +111,7 @@ export default async function PatientAlertsPage() {
       user={user}
       title="Alerts"
       description="A patient-facing alert summary generated from medication logs, routines, care-circle status, and appointments."
+      patientBottomNavActive="home"
       links={[
         { href: "/patient/dashboard", label: "Home" },
         { href: "/patient/health-info", label: "Health Info" },

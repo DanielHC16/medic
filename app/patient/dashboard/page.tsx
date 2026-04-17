@@ -1,12 +1,16 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PatientDashboardChatbot } from "@/components/patient-dashboard-chatbot";
+import { PatientBottomNav } from "@/components/patient-bottom-nav";
+import { InviteSharePanel } from "@/components/invite-share-panel";
+import { formatDayList, formatStatusLabel, formatTimeList } from "@/lib/display";
 import type { PatientDashboardData, ActivityPlanRecord } from "@/lib/medic-types";
 import {
   Sun, QrCode, UserRound, Bell, Bot,
-  House, Clock, Heart, User, X, Check,
+  X, Check,
   CalendarDays, Stethoscope, MapPin, AlarmClock, Pill, WandSparkles,
 } from "lucide-react";
 
@@ -233,6 +237,297 @@ function AppointmentModal({
   );
 }
 
+function QrModal(props: {
+  inviteCode: string | null;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={props.onClose}
+    >
+      <div className="pd-modal-sheet overflow-y-auto" onClick={(event) => event.stopPropagation()}>
+        <div className="flex justify-between items-center gap-4 mb-4">
+          <div>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.18em] opacity-60">
+              Care Circle
+            </p>
+            <h2 className="pd-modal-title-lg">Recent QR invite</h2>
+          </div>
+          <button
+            onClick={props.onClose}
+            className="w-8 h-8 rounded-full border border-[#2F3E34] flex items-center justify-center hover:bg-[#E5E7EB] transition"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {props.inviteCode ? (
+          <InviteSharePanel code={props.inviteCode} tone="embedded" />
+        ) : (
+          <div className="pd-card p-4">
+            <p className="text-[15px] font-bold">No invite QR generated yet.</p>
+            <p className="text-[13px] opacity-70 mt-2">
+              Open Care Circle to generate a caregiver or family invite QR code.
+            </p>
+          </div>
+        )}
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link href="/patient/care-circle" className="medic-button medic-button-primary">
+            Open Care Circle
+          </Link>
+          <Link href="/patient/care-circle" className="medic-button medic-button-soft">
+            Manage connections
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MedicationSummaryModal(props: {
+  medications: PatientDashboardData["medications"];
+  onClose: () => void;
+  onSelectMedication: (medication: PatientDashboardData["medications"][0]) => void;
+  summary: PatientDashboardData["medicationSummary"];
+}) {
+  const activeMedications = props.medications.filter((medication) => medication.isActive);
+  const total = props.summary.dueToday || props.summary.activeMedications;
+  const taken = props.summary.takenToday;
+  const missed = Math.max(0, props.summary.activeMedications - taken);
+  const pending = Math.max(0, total - taken);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center"
+      onClick={props.onClose}
+    >
+      <div
+        className="pd-modal-sheet overflow-y-auto"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.18em] opacity-60">
+              Progress Summary
+            </p>
+            <h2 className="pd-modal-title-lg">Medication details</h2>
+            <p className="mt-1 text-[13px] opacity-70">
+              {taken} / {total} means {taken} medication logs are marked taken today out of{" "}
+              {total} medication doses due today.
+            </p>
+          </div>
+          <button
+            onClick={props.onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-[#2F3E34] transition hover:bg-[#E5E7EB]"
+            aria-label="Close medication details"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mb-4 grid gap-3 md:grid-cols-3">
+          {[
+            { label: "Taken", value: taken },
+            { label: "Pending", value: pending },
+            { label: "Missed", value: missed },
+          ].map((item) => (
+            <div key={item.label} className="pd-card p-4 text-center">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.16em] opacity-60">
+                {item.label}
+              </p>
+              <p className="mt-2 text-[24px] font-bold">{item.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-3">
+          {activeMedications.length === 0 ? (
+            <div className="pd-card p-4 text-[13px] opacity-70">
+              No active medications are available right now.
+            </div>
+          ) : (
+            activeMedications.map((medication) => (
+              <button
+                key={medication.id}
+                type="button"
+                onClick={() => props.onSelectMedication(medication)}
+                className="pd-card p-4 text-left transition hover:opacity-90"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[16px] font-bold">{medication.name}</p>
+                    <p className="mt-1 text-[13px] opacity-70">
+                      {medication.dosageValue}
+                      {medication.dosageUnit ? ` ${medication.dosageUnit}` : ""} {medication.form}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-[12px] font-bold ${statusPillClass(
+                      medication.latestLogStatus ?? "pending",
+                    )}`}
+                  >
+                    {formatStatusLabel(medication.latestLogStatus ?? "pending")}
+                  </span>
+                </div>
+                <p className="mt-3 text-[13px] opacity-70">
+                  Schedule: {formatTimeList(medication.scheduleTimes)}
+                </p>
+                <p className="mt-1 text-[13px] opacity-70">
+                  Days: {formatDayList(medication.scheduleDays)}
+                </p>
+                <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[#568164]">
+                  View this medication
+                </p>
+              </button>
+            ))
+          )}
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link href="/patient/medications" className="medic-button medic-button-primary">
+            Open Medications
+          </Link>
+          <Link href="/patient/schedule?view=medications" className="medic-button medic-button-soft">
+            Open Schedule
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getActivityStatus(plan: ActivityPlanRecord) {
+  return plan.latestCompletionStatus ?? "planned";
+}
+
+function getActivityCounts(plans: ActivityPlanRecord[]) {
+  return {
+    done: plans.filter((plan) => getActivityStatus(plan) === "done").length,
+    missed: plans.filter((plan) => getActivityStatus(plan) === "missed").length,
+    planned: plans.filter((plan) => getActivityStatus(plan) === "planned").length,
+    total: plans.length,
+  };
+}
+
+function ActivitySummaryModal(props: {
+  filter: "all" | "done" | "missed" | "planned";
+  onClose: () => void;
+  onFilterChange: (filter: "all" | "done" | "missed" | "planned") => void;
+  plans: ActivityPlanRecord[];
+}) {
+  const counts = getActivityCounts(props.plans);
+  const filteredPlans =
+    props.filter === "all"
+      ? props.plans
+      : props.plans.filter((plan) => getActivityStatus(plan) === props.filter);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center"
+      onClick={props.onClose}
+    >
+      <div
+        className="pd-modal-sheet overflow-y-auto"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.18em] opacity-60">
+              Progress Summary
+            </p>
+            <h2 className="pd-modal-title-lg">Wellness routines</h2>
+            <p className="mt-1 text-[13px] opacity-70">
+              {counts.done} / {counts.total} means {counts.done} active routines are marked
+              done today out of {counts.total} active routines currently in the plan.
+            </p>
+          </div>
+          <button
+            onClick={props.onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-[#2F3E34] transition hover:bg-[#E5E7EB]"
+            aria-label="Close routine details"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mb-4 flex flex-wrap gap-2">
+          {[
+            { key: "all", label: `All (${counts.total})` },
+            { key: "done", label: `Done (${counts.done})` },
+            { key: "planned", label: `Planned (${counts.planned})` },
+            { key: "missed", label: `Missed (${counts.missed})` },
+          ].map((item) => {
+            const isActive = props.filter === item.key;
+
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() =>
+                  props.onFilterChange(item.key as "all" | "done" | "missed" | "planned")
+                }
+                className={`rounded-full border px-3 py-2 text-[12px] font-semibold transition ${
+                  isActive
+                    ? "border-[#2F3E34] bg-[#2F3E34] text-white"
+                    : "border-[#2F3E34]/20 bg-[#F6F7F2] text-[#2F3E34]"
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="grid gap-3">
+          {filteredPlans.length === 0 ? (
+            <div className="pd-card p-4 text-[13px] opacity-70">
+              No routines match this status right now.
+            </div>
+          ) : (
+            filteredPlans.map((plan) => (
+              <article key={plan.id} className="pd-card p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[16px] font-bold">{plan.title}</p>
+                    <p className="mt-1 text-[13px] opacity-70">
+                      {plan.category} / {formatDayList(plan.daysOfWeek)}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-[12px] font-bold ${statusPillClass(
+                      getActivityStatus(plan),
+                    )}`}
+                  >
+                    {formatStatusLabel(getActivityStatus(plan))}
+                  </span>
+                </div>
+                <p className="mt-3 text-[13px] opacity-70">
+                  {plan.targetMinutes ? `${plan.targetMinutes} minutes` : "Flexible length"}
+                </p>
+                <p className="mt-2 text-[13px] opacity-70">
+                  {plan.instructions || "No extra instructions for this routine."}
+                </p>
+              </article>
+            ))
+          )}
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link href="/wellness" className="medic-button medic-button-primary">
+            Open Wellness
+          </Link>
+          <Link href="/patient/schedule?view=appointments" className="medic-button medic-button-soft">
+            Open Schedule
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Charts ───────────────────────────────────────────────────────────────────
 
 function MedicationDonutChart({ taken, missed, pending, total }: {
@@ -259,14 +554,12 @@ function MedicationDonutChart({ taken, missed, pending, total }: {
 }
 
 function ActivityBarChart({ plans }: { plans: ActivityPlanRecord[] }) {
-  const total     = plans.length || 1;
-  const completed = plans.filter((p) => p.latestCompletionStatus === "done").length;
-  const missed    = plans.filter((p) => p.latestCompletionStatus === "missed").length;
-  const planned   = plans.filter((p) => p.latestCompletionStatus === "planned" || !p.latestCompletionStatus).length;
+  const counts = getActivityCounts(plans);
+  const total = counts.total || 1;
   const bars = [
-    { label: "Done",    value: completed, color: "#4A7C59" },
-    { label: "Planned", value: planned,   color: "#E9C46A" },
-    { label: "Missed",  value: missed,    color: "#D97B7B" },
+    { label: "Done",    value: counts.done, color: "#4A7C59" },
+    { label: "Planned", value: counts.planned,   color: "#E9C46A" },
+    { label: "Missed",  value: counts.missed,    color: "#D97B7B" },
   ];
   const maxVal = Math.max(...bars.map((b) => b.value), 1);
   return (
@@ -280,7 +573,7 @@ function ActivityBarChart({ plans }: { plans: ActivityPlanRecord[] }) {
           </div>
         ))}
       </div>
-      <p className="text-[13px] text-center opacity-50 mt-2">{completed} of {total} done</p>
+      <p className="text-[13px] text-center opacity-50 mt-2">{counts.done} of {total} done</p>
     </div>
   );
 }
@@ -291,19 +584,57 @@ export default function PatientDashboardPage() {
   const [data, setData] = useState<PatientDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [aiRecommendation, setAiRecommendation] = useState<string | null>(null);
+  const [latestInviteCode, setLatestInviteCode] = useState<string | null>(null);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [showMedicationSummary, setShowMedicationSummary] = useState(false);
+  const [activityModalFilter, setActivityModalFilter] = useState<"all" | "done" | "missed" | "planned" | null>(null);
   const [selectedMed, setSelectedMed] = useState<PatientDashboardData["medications"][0] | null>(null);
   const [selectedAppt, setSelectedAppt] = useState<PatientDashboardData["appointments"][0] | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/dashboard/patient").then((r) => r.json()),
-      fetch("/api/wellness/recommendations").then((r) => r.json()),
-    ]).then(([dashJson, recJson]) => {
-      setData(dashJson?.data ?? dashJson);
-      const rec = recJson?.recommendation ?? recJson?.summary ?? recJson?.message ?? null;
-      setAiRecommendation(typeof rec === "string" ? rec : null);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    let cancelled = false;
+
+    Promise.allSettled([
+      fetch("/api/dashboard/patient", { cache: "no-store" }).then((response) => response.json()),
+      fetch("/api/wellness/recommendations", { cache: "no-store" }).then((response) => response.json()),
+      fetch("/api/invitations", { cache: "no-store" }).then((response) =>
+        response.ok ? response.json() : null,
+      ),
+    ])
+      .then(([dashboardResult, recommendationResult, invitationsResult]) => {
+        if (cancelled) {
+          return;
+        }
+
+        if (dashboardResult.status === "fulfilled") {
+          setData(dashboardResult.value?.data ?? dashboardResult.value ?? null);
+        }
+
+        if (recommendationResult.status === "fulfilled") {
+          const rec =
+            recommendationResult.value?.recommendation ??
+            recommendationResult.value?.summary ??
+            recommendationResult.value?.message ??
+            null;
+          setAiRecommendation(typeof rec === "string" ? rec : null);
+        }
+
+        if (
+          invitationsResult.status === "fulfilled" &&
+          invitationsResult.value?.invitations?.[0]?.code
+        ) {
+          setLatestInviteCode(invitationsResult.value.invitations[0].code);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const today = new Date();
@@ -319,6 +650,7 @@ export default function PatientDashboardPage() {
   )[0] ?? null;
   const nextMed   = data?.medications?.[0] ?? null;
   const actPlans  = data?.activityPlans ?? [];
+  const activityCounts = getActivityCounts(actPlans);
 
   const taken   = summary.takenToday;
   const total   = summary.dueToday || summary.activeMedications;
@@ -341,6 +673,9 @@ export default function PatientDashboardPage() {
   const apptTime = nextAppt
     ? new Date(nextAppt.appointmentAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Manila" })
     : null;
+  const appointmentScheduleHref = nextAppt
+    ? `/patient/schedule?view=appointments&appointmentId=${nextAppt.id}`
+    : "/patient/schedule?view=appointments";
 
   const apptIsToday = nextAppt
     ? new Date(nextAppt.appointmentAt).toLocaleDateString("en-US", { timeZone: "Asia/Manila" }) === today.toLocaleDateString("en-US", { timeZone: "Asia/Manila" })
@@ -370,7 +705,12 @@ export default function PatientDashboardPage() {
           </div>
         </div>
         <div className="flex items-center gap-2.5">
-          <button className="pd-icon-btn" aria-label="QR Code">
+          <button
+            className="pd-icon-btn"
+            aria-label="QR Code"
+            onClick={() => setShowQrModal(true)}
+            type="button"
+          >
             <QrCode className="w-5 h-5" />
           </button>
           <PatientDashboardChatbot
@@ -378,7 +718,18 @@ export default function PatientDashboardPage() {
           />
           <Link href="/profile">
             <div className="pd-avatar">
-              <UserRound className="w-5 h-5" />
+              {data?.user.profileImageDataUrl ? (
+                <Image
+                  src={data.user.profileImageDataUrl}
+                  alt={`${firstName} profile photo`}
+                  width={40}
+                  height={40}
+                  className="h-full w-full object-cover"
+                  unoptimized
+                />
+              ) : (
+                <UserRound className="w-5 h-5" />
+              )}
             </div>
           </Link>
         </div>
@@ -434,7 +785,15 @@ export default function PatientDashboardPage() {
           </div>
 
           {/* Upcoming Appointments */}
-          <h3 className="pd-section-heading">Upcoming Appointments</h3>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="pd-section-heading">Upcoming Appointments</h3>
+            <Link
+              href={appointmentScheduleHref}
+              className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#568164]"
+            >
+              View schedule
+            </Link>
+          </div>
 
           {!nextAppt ? (
             <div className="pd-card p-4 text-[13px] text-center opacity-60">No upcoming appointments.</div>
@@ -479,9 +838,18 @@ export default function PatientDashboardPage() {
           <h3 className="pd-section-heading">Progress Summary</h3>
 
           <div className="pd-progress-grid">
-            <div className="pd-card p-4 flex flex-col gap-2 h-full">
+            <button
+              type="button"
+              onClick={() => setShowMedicationSummary(true)}
+              className="pd-card flex h-full flex-col gap-2 p-4 text-left transition hover:opacity-90"
+            >
               <div className="w-full text-center">
-                <p className="text-[13px] font-bold">Medications</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[13px] font-bold">Medications</p>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#568164]">
+                    View details
+                  </span>
+                </div>
                 <p className="text-[22px] font-bold leading-tight" style={{ fontFamily: "var(--font-heading)" }}>
                   {taken}<span className="text-[15px] font-semibold opacity-60"> / {total}</span>
                 </p>
@@ -498,41 +866,61 @@ export default function PatientDashboardPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </button>
 
-            <div className="pd-card p-4 flex flex-col gap-2 h-full">
+            <button
+              type="button"
+              onClick={() => setActivityModalFilter("all")}
+              className="pd-card flex h-full flex-col gap-2 p-4 text-left transition hover:opacity-90"
+            >
               <div className="w-full text-center">
-                <p className="text-[13px] font-bold">Activities</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[13px] font-bold">Wellness routines</p>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#568164]">
+                    View details
+                  </span>
+                </div>
                 <p className="text-[22px] font-bold leading-tight" style={{ fontFamily: "var(--font-heading)" }}>
-                  {actPlans.filter((p) => p.latestCompletionStatus === "done").length}
-                  <span className="text-[15px] font-semibold opacity-60"> / {actPlans.length}</span>
+                  {activityCounts.done}
+                  <span className="text-[15px] font-semibold opacity-60"> / {activityCounts.total}</span>
                 </p>
-                <p className="text-[13px] opacity-50">completed today</p>
+                <p className="text-[13px] opacity-50">active routines marked done today</p>
               </div>
               <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
                 <ActivityBarChart plans={actPlans} />
               </div>
-            </div>
+            </button>
           </div>
 
         </div>
       )}
 
-      {/* Bottom Nav */}
-      <nav className="pd-nav">
-        <div className="pd-nav-active">
-          <Link href="/patient/dashboard" className="flex items-center justify-center w-full h-full">
-            <House className="w-8 h-8" />
-          </Link>
-        </div>
-        <Link href="/patient/schedule" className="pd-nav-link"><Clock className="w-7 h-7" /></Link>
-        <Link href="/patient/medications" className="pd-nav-link"><Pill className="w-7 h-7" /></Link>
-        <Link href="/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
-        <Link href="/profile" className="pd-nav-link"><User className="w-7 h-7" /></Link>
-      </nav>
+      <PatientBottomNav activeItem="home" />
 
       {selectedMed && <MedicationModal med={selectedMed} summary={summary} onClose={() => setSelectedMed(null)} />}
       {selectedAppt && <AppointmentModal appt={selectedAppt} onClose={() => setSelectedAppt(null)} />}
+      {showMedicationSummary ? (
+        <MedicationSummaryModal
+          medications={data?.medications ?? []}
+          onClose={() => setShowMedicationSummary(false)}
+          onSelectMedication={(medication) => {
+            setShowMedicationSummary(false);
+            setSelectedMed(medication);
+          }}
+          summary={summary}
+        />
+      ) : null}
+      {showQrModal ? (
+        <QrModal inviteCode={latestInviteCode} onClose={() => setShowQrModal(false)} />
+      ) : null}
+      {activityModalFilter ? (
+        <ActivitySummaryModal
+          filter={activityModalFilter}
+          onClose={() => setActivityModalFilter(null)}
+          onFilterChange={setActivityModalFilter}
+          plans={actPlans}
+        />
+      ) : null}
     </main>
   );
 }

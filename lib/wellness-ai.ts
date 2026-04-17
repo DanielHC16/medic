@@ -392,6 +392,14 @@ function resolveRecommendation(
 function describeWellnessFallback(error: unknown) {
   const message = getErrorMessage(error).toLowerCase();
 
+  if (message.includes("api key not valid")) {
+    return "The Gemini API key in the environment is malformed, so Medic is using a backup recommendation from the patient's current data.";
+  }
+
+  if (message.includes("prepayment credits are depleted") || message.includes("billing")) {
+    return "The Gemini project has no remaining credits right now, so Medic is using a backup recommendation from the patient's current data.";
+  }
+
   if (message.includes("429") || message.includes("quota")) {
     return "Gemini hit a rate limit, so Medic is using a backup recommendation from the patient's current data.";
   }

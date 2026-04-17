@@ -10,6 +10,7 @@ export default async function PatientSettingsPage() {
       user={user}
       title="Settings"
       description="Adjust patient-facing display and reminder preferences for the current MEDIC account."
+      patientBottomNavActive="profile"
       links={[
         { href: "/patient/dashboard", label: "Home" },
         { href: "/patient/health-info", label: "Health Info" },

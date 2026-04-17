@@ -1,7 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type Dispatch, type FormEvent, type SetStateAction, useState } from "react";
+import {
+  type Dispatch,
+  type FormEvent,
+  type SetStateAction,
+  useRef,
+  useState,
+} from "react";
 
 import { WellnessAiPanel } from "@/components/wellness-ai-panel";
 import { formatDateTime, formatDayList, formatStatusLabel } from "@/lib/display";
@@ -802,6 +808,7 @@ export function WellnessManager({
   const [createRoutineDraftState, setCreateRoutineDraftState] = useState<RoutineDraft>(() =>
     createRoutineDraft(),
   );
+  const createRoutineSectionRef = useRef<HTMLElement | null>(null);
   const [createAppointmentDraftState, setCreateAppointmentDraftState] =
     useState<AppointmentDraft>(() => createAppointmentDraft());
   const [routineDraft, setRoutineDraft] = useState<RoutineDraft>(() => createRoutineDraft());
@@ -1055,6 +1062,16 @@ export function WellnessManager({
         onApplyRoutine={applyAiRoutine}
         onLoadRoutineDraft={(routine) => {
           setCreateRoutineDraftState(createRoutineDraftFromSuggestion(routine));
+          requestAnimationFrame(() => {
+            const section = createRoutineSectionRef.current;
+
+            if (section && typeof section.scrollIntoView === "function") {
+              section.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            }
+          });
         }}
         onNotice={(nextMessage) => setMessage(nextMessage)}
         patientUserId={patientUserId}
@@ -1273,7 +1290,10 @@ export function WellnessManager({
 
       {canManage ? (
         <div className="grid gap-6 lg:grid-cols-2">
-          <section className="rounded-[2rem] border border-black/5 bg-white/90 p-6 shadow-sm">
+          <section
+            ref={createRoutineSectionRef}
+            className="rounded-[2rem] border border-black/5 bg-white/90 p-6 shadow-sm"
+          >
             <h2 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
               Add routine
             </h2>

@@ -1,3 +1,11 @@
+function normalizeEnvironmentValue(value: string | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  return value.trim().replace(/^['"]+|['"]+$/g, "");
+}
+
 export function getDatabaseUrl() {
   const connectionString =
     process.env.DATABASE_URL ??
@@ -14,7 +22,9 @@ export function getDatabaseUrl() {
 }
 
 export function getGeminiApiKey() {
-  const apiKey = process.env.API_KEY ?? process.env.GEMINI_API_KEY;
+  const apiKey = normalizeEnvironmentValue(
+    process.env.API_KEY ?? process.env.GEMINI_API_KEY,
+  );
 
   if (!apiKey) {
     throw new Error(

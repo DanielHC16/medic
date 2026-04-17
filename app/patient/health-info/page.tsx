@@ -12,6 +12,7 @@ export default async function PatientHealthInfoPage() {
       user={user}
       title="Health Info"
       description="Review and update the patient's core health information, assistance level, and emergency notes."
+      patientBottomNavActive="wellness"
       links={[
         { href: "/patient/dashboard", label: "Home" },
         { href: "/patient/alerts", label: "Alerts" },

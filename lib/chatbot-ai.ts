@@ -197,6 +197,14 @@ function resolveChatReply(value: string, fallback: string) {
 function describeChatFallback(error: unknown) {
   const message = getErrorMessage(error).toLowerCase();
 
+  if (message.includes("api key not valid")) {
+    return "Medic AI is answering from your current app data because the Gemini API key format is invalid.";
+  }
+
+  if (message.includes("prepayment credits are depleted") || message.includes("billing")) {
+    return "Medic AI is answering from your current app data because the Gemini project has no remaining credits right now.";
+  }
+
   if (message.includes("429") || message.includes("quota")) {
     return "Medic AI is answering from your current app data while Gemini is rate-limited.";
   }

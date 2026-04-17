@@ -8,12 +8,13 @@ import {
   Calendar,
   CheckCircle2,
   Clock3,
-  MapPin,
   Pill,
   UserRound,
   X,
+  MapPin,
 } from "lucide-react";
 
+import { PatientBottomNav } from "@/components/patient-bottom-nav";
 import {
   formatClockTime,
   formatDate,
@@ -396,28 +397,7 @@ export function PatientScheduleManager({
         </section>
       )}
 
-      <nav className="fixed bottom-0 left-0 z-50 flex w-full items-center justify-between rounded-t-[32px] bg-[#FAFBF9] px-8 py-4 pb-8 shadow-[0_-8px_24px_rgba(0,0,0,0.05)]">
-        <Link href="/patient/dashboard" className="group p-2">
-          <HomeIcon className="h-[28px] w-[28px] text-[#C0C8C3] transition-all duration-300 group-hover:text-[#4D6A56]" />
-        </Link>
-
-        <div className="relative -top-8">
-          <Link
-            href="/patient/schedule"
-            className="flex h-[68px] w-[68px] items-center justify-center rounded-full border-[6px] border-[#EFF3F1] bg-[#4D6A56] text-white shadow-xl transition-transform duration-300 hover:scale-105"
-          >
-            <ClockIcon className="h-8 w-8 text-white" />
-          </Link>
-        </div>
-
-        <Link href="/wellness" className="group p-2">
-          <HeartIcon className="h-[28px] w-[28px] text-[#C0C8C3] transition-all duration-300 group-hover:text-[#4D6A56]" />
-        </Link>
-
-        <Link href="/profile" className="group p-2">
-          <UserOutlineIcon className="h-[28px] w-[28px] text-[#C0C8C3] transition-all duration-300 group-hover:text-[#4D6A56]" />
-        </Link>
-      </nav>
+      <PatientBottomNav activeItem="schedule" />
     </main>
   );
 }
@@ -654,52 +634,5 @@ function EmptyCard(props: { description: string; title: string }) {
       <h2 className="text-[18px] font-bold text-[#1A231D]">{props.title}</h2>
       <p className="mt-2 text-[13px] leading-6 text-[#73847B]">{props.description}</p>
     </article>
-  );
-}
-
-function HomeIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg fill="currentColor" viewBox="0 0 24 24" {...props}>
-      <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-    </svg>
-  );
-}
-
-function ClockIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2.5}
-        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-      />
-    </svg>
-  );
-}
-
-function HeartIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2.5}
-        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-      />
-    </svg>
-  );
-}
-
-function UserOutlineIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" {...props}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2.5}
-        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-      />
-    </svg>
   );
 }
