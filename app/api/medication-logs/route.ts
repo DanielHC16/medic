@@ -6,6 +6,19 @@ import type { MedicationLogStatus } from "@/lib/medic-types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+export async function GET() {
+  try {
+    const user = await requireRole("patient");
+    const logs = await listMedicationLogsForPatient(user.userId, 50);
+    return Response.json({ logs, ok: true });
+  } catch (error) {
+    return Response.json(
+      { message: error instanceof Error ? error.message : "Failed to fetch logs.", ok: false },
+      { status: 400 },
+    );
+  }
+}
+
 function getMedicationLogStatus(value: unknown): MedicationLogStatus {
   return value === "missed" || value === "skipped" || value === "queued_offline"
     ? value
