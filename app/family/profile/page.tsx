@@ -1,38 +1,96 @@
-import { AppShell } from "@/components/app-shell";
-import { ProfilePageContent } from "@/components/profile-page-content";
-import { requireRole } from "@/lib/auth/dal";
-import { listLinkedPatientsForMember } from "@/lib/db/medic-data";
+"use client";
 
-export default async function FamilyProfilePage() {
-  const user = await requireRole("family_member");
-  const records = (await listLinkedPatientsForMember(user.userId)).filter(
-    (item) => item.relationshipStatus !== "revoked",
-  );
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { House, Clock, Heart, User, QrCode, ChevronDown, List, Users } from "lucide-react";
+import { ProfileEditModal } from "@/components/profile-edit-modal";
+import { LogoutButton } from "@/components/logout-button";
+
+export default function FamilyProfilePage() {
+  const [user, setUser] = useState<{ firstName: string; lastName: string; email: string; phone: string | null } | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/profile").then((r) => r.ok ? r.json() : null).then((j) => j && setUser(j?.user ?? j)).catch(() => {});
+  }, []);
+
+  const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : "User";
 
   return (
-    <AppShell
-      user={user}
-      title="Family Profile"
-      description="Update your family-member account details and review which patient records you can currently view."
-      links={[
-        { href: "/family/dashboard", label: "Dashboard" },
-        { href: "/family/updates", label: "Updates" },
-        { href: "/join", label: "Join a patient" },
-      ]}
-    >
-      <ProfilePageContent
-        heading="Family account"
-        records={records}
-        roleNotes={[
-          "Family access is designed to stay lighter and more update-focused than caregiver access.",
-          "Use the Updates page to review recent medication, routine, and appointment activity.",
-        ]}
-        shortcuts={[
-          { href: "/family/updates", label: "Open Updates" },
-          { href: "/join", label: "Join another patient" },
-        ]}
-        user={user}
-      />
-    </AppShell>
+    <main className="pd-page flex flex-col">
+      <h1 className="pd-heading mb-6">Profile</h1>
+      <div className="flex flex-col items-center gap-3 mb-8">
+        <div className="w-20 h-20 rounded-full border-2 border-[#2F3E34] bg-[#E5E7EB] flex items-center justify-center">
+          <User className="w-10 h-10 text-[#2F3E34]" />
+        </div>
+        <p className="text-[17px] font-bold">{fullName}</p>
+        <button
+          onClick={() => setEditOpen(true)}
+          className="flex items-center gap-2 px-6 py-2.5 rounded-full border border-[#2F3E34]/30 bg-[#F6F7F2] text-[13px] font-semibold opacity-70 hover:bg-[#E5E7EB] transition"
+        >
+          Edit Profile <ChevronDown className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Options */}
+      <div className="mb-6">
+        <p className="text-[15px] font-bold mb-3">Options:</p>
+        <div className="flex flex-col gap-3">
+          <Link href="/join" className="pd-card p-4 flex items-center gap-4 hover:opacity-90 transition">
+            <div className="w-10 h-10 rounded-xl bg-[#2F3E34]/10 flex items-center justify-center flex-shrink-0">
+              <QrCode className="w-5 h-5 text-[#2F3E34]" />
+            </div>
+            <span className="text-[16px] font-bold">QR / Code</span>
+          </Link>
+
+          <Link href="/family/dashboard" className="pd-card p-4 flex items-center gap-4 hover:opacity-90 transition">
+            <div className="w-10 h-10 rounded-xl bg-[#2F3E34]/10 flex items-center justify-center flex-shrink-0">
+              <User className="w-5 h-5 text-[#2F3E34]" />
+            </div>
+            <span className="text-[16px] font-bold">Patient Profiles</span>
+          </Link>
+
+          <Link href="/family/updates" className="pd-card p-4 flex items-center gap-4 hover:opacity-90 transition">
+            <div className="w-10 h-10 rounded-xl bg-[#2F3E34]/10 flex items-center justify-center flex-shrink-0">
+              <List className="w-5 h-5 text-[#2F3E34]" />
+            </div>
+            <span className="text-[16px] font-bold">Activity Logs</span>
+          </Link>
+
+          <Link href="/join" className="pd-card p-4 flex items-center gap-4 hover:opacity-90 transition">
+            <div className="w-10 h-10 rounded-xl bg-[#2F3E34]/10 flex items-center justify-center flex-shrink-0">
+              <Users className="w-5 h-5 text-[#2F3E34]" />
+            </div>
+            <span className="text-[16px] font-bold">Connected Users</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Sign out */}
+      <div className="mt-auto pt-8 pb-4 flex justify-center">
+        <LogoutButton />
+      </div>
+
+      {/* Bottom Nav */}
+      <nav className="pd-nav">
+        <Link href="/family/dashboard" className="pd-nav-link"><House className="w-7 h-7" /></Link>
+        <Link href="/family/updates" className="pd-nav-link"><Clock className="w-7 h-7" /></Link>
+        <Link href="/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
+        <div className="pd-nav-active">
+          <Link href="/family/profile" className="flex items-center justify-center w-full h-full">
+            <User className="w-8 h-8" />
+          </Link>
+        </div>
+      </nav>
+
+      {editOpen && user && (
+        <ProfileEditModal
+          initialName={fullName}
+          initialEmail={user.email}
+          initialPhone={user.phone ?? ""}
+          onClose={() => setEditOpen(false)}
+        />
+      )}
+    </main>
   );
 }

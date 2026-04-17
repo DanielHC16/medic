@@ -1,295 +1,200 @@
+"use client";
+
 import Link from "next/link";
-import {
-  type LucideIcon,
-  Home,
-  BellRing,
-  UserPlus,
-  Heart,
-  UserCircle,
-} from "lucide-react";
+import { useState } from "react";
+import { UserRound, Pill, Activity, Calendar, ChevronLeft } from "lucide-react";
 
-import { CareAccessStatusPanel } from "@/components/care-access-status-panel";
-import { MedicationReminderPanel } from "@/components/medication-reminder-panel";
-import { formatDateTime } from "@/lib/display";
-import { requireRole } from "@/lib/auth/dal";
-import {
-  getActivitySummary,
-  getCareMemberDashboardData,
-  getMedicationAdherenceSummary,
-  listActivityLogsForPatient,
-  listMedicationLogsForPatient,
-} from "@/lib/db/medic-data";
+type Tab = "medication" | "schedule" | "activities";
 
-type FamilyUpdatesPageProps = {
-  searchParams: Promise<{
-    patientId?: string;
-  }>;
-};
+// Static sample data
 
-export default async function FamilyUpdatesPage({
-  searchParams,
-}: FamilyUpdatesPageProps) {
-  const user = await requireRole("family_member");
-  const resolvedSearchParams = await searchParams;
-  const dashboard = await getCareMemberDashboardData({
-    patientUserId: resolvedSearchParams.patientId ?? null,
-    userId: user.userId,
-  });
+const SAMPLE_PATIENTS = [
+  { id: "1", name: "Elderly 1" },
+  { id: "2", name: "Elderly 2" },
+];
 
-  if (!dashboard) {
-    return null;
-  }
+const SAMPLE_MED_LOGS = [
+  { id: "m1", time: "10:05 AM", isToday: true,  actor: "Caregiver", name: "Acetaminophen" },
+  { id: "m2", time: "8:01 PM",  isToday: false, actor: "Caregiver", name: "Acetaminophen" },
+  { id: "m3", time: "2:12 PM",  isToday: false, actor: "Caregiver", name: "Acetaminophen" },
+  { id: "m4", time: "8:09 AM",  isToday: false, actor: "Caregiver", name: "Acetaminophen" },
+];
 
-  const selectedPatient = dashboard.selectedPatient;
-  const selectedPatientId = selectedPatient?.user.userId ?? null;
-  const [medicationSummary, activitySummary, medicationLogs, activityLogs] =
-    selectedPatientId
-      ? await Promise.all([
-          getMedicationAdherenceSummary(selectedPatientId),
-          getActivitySummary(selectedPatientId),
-          listMedicationLogsForPatient(selectedPatientId, 8),
-          listActivityLogsForPatient(selectedPatientId, 8),
-        ])
-      : [null, null, [], []];
+const SAMPLE_SCHEDULE_LOGS = [
+  { id: "s1", time: "10:00 AM", isToday: true,  title: "Check Up",       provider: "Dr. Who" },
+  { id: "s2", time: "3:00 PM",  isToday: false, title: "Follow-up Visit", provider: "Dr. Who" },
+];
 
+const SAMPLE_ACTIVITY_LOGS = [
+  { id: "a1", time: "9:00 AM",  isToday: true,  title: "Morning Walk",       status: "done" },
+  { id: "a2", time: "7:30 AM",  isToday: false, title: "Breathing Exercise", status: "done" },
+  { id: "a3", time: "4:00 PM",  isToday: false, title: "Light Stretching",   status: "missed" },
+];
+
+// Log card 
+
+function LogCard({ time, isToday, children }: { time: string; isToday: boolean; children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#Eef1f4] pb-32 font-sans">
-      <main className="px-6 pt-10">
-        {dashboard.activeLinkedPatients.length > 1 ? (
-          <section className="mb-6 rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold tracking-tight text-gray-900">
-              Patient switcher
-            </h2>
-            <div className="mt-4 flex flex-wrap gap-3">
-              {dashboard.activeLinkedPatients.map((patient) => (
-                <Link
-                  key={patient.relationshipId}
-                  href={`/family/updates?patientId=${patient.patientUserId}`}
-                  className="rounded-full bg-[#Eef1f4] px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
-                >
-                  {patient.patientDisplayName} / {patient.relationshipStatus}
-                </Link>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {!selectedPatient || !selectedPatientId || !medicationSummary || !activitySummary ? (
-          <CareAccessStatusPanel
-            linkedPatients={dashboard.linkedPatients}
-            role="family_member"
-          />
-        ) : (
-          <div className="grid gap-6">
-            <section className="grid gap-4 md:grid-cols-4">
-              <MetricCard
-                label="Patient"
-                value={`${selectedPatient.user.firstName} ${selectedPatient.user.lastName}`}
-              />
-              <MetricCard
-                label="Taken today"
-                value={`${medicationSummary.takenToday}/${medicationSummary.dueToday}`}
-              />
-              <MetricCard
-                label="Upcoming appointments"
-                value={String(selectedPatient.appointments.length)}
-              />
-              <MetricCard
-                label="Completed routines"
-                value={String(activitySummary.completedToday)}
-              />
-            </section>
-
-            <MedicationReminderPanel
-              contactMethod={user.preferences.preferredContactMethod}
-              logs={medicationLogs}
-              medications={selectedPatient.medications}
-              patientDisplayName={`${selectedPatient.user.firstName} ${selectedPatient.user.lastName}`}
-              patientUserId={selectedPatientId}
-              role={user.role}
-              timeFormat={user.preferences.timeFormat}
-              viewerDisplayName={`${user.firstName} ${user.lastName}`}
-            />
-
-            <section className="grid gap-6 lg:grid-cols-2">
-              <article className="rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
-                <h2 className="text-xl font-semibold tracking-tight text-gray-900">
-                  Medication updates
-                </h2>
-                <div className="mt-4 grid gap-4">
-                  {medicationLogs.length === 0 ? (
-                    <p className="rounded-2xl bg-[#Eef1f4] px-4 py-3 text-sm text-gray-600">
-                      No medication activity recorded yet.
-                    </p>
-                  ) : (
-                    medicationLogs.map((item) => (
-                      <article
-                        key={item.id}
-                        className="rounded-3xl border border-black/5 bg-[#Eef1f4] p-4"
-                      >
-                        <p className="text-base font-semibold text-gray-900">
-                          {item.medicationName}
-                        </p>
-                        <p className="mt-2 text-sm text-gray-600 capitalize">
-                          {item.status.replace(/_/g, " ")} /{" "}
-                          {formatDateTime(item.takenAt || item.createdAt)}
-                        </p>
-                      </article>
-                    ))
-                  )}
-                </div>
-              </article>
-
-              <article className="rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
-                <h2 className="text-xl font-semibold tracking-tight text-gray-900">
-                  Routine updates
-                </h2>
-                <div className="mt-4 grid gap-4">
-                  {activityLogs.length === 0 ? (
-                    <p className="rounded-2xl bg-[#Eef1f4] px-4 py-3 text-sm text-gray-600">
-                      No routine activity logged yet.
-                    </p>
-                  ) : (
-                    activityLogs.map((item) => (
-                      <article
-                        key={item.id}
-                        className="rounded-3xl border border-black/5 bg-[#Eef1f4] p-4"
-                      >
-                        <p className="text-base font-semibold text-gray-900">
-                          {item.activityTitle}
-                        </p>
-                        <p className="mt-2 text-sm text-gray-600 capitalize">
-                          {item.completionStatus.replace(/_/g, " ")} /{" "}
-                          {formatDateTime(item.completedAt || item.createdAt)}
-                        </p>
-                      </article>
-                    ))
-                  )}
-                </div>
-              </article>
-            </section>
-
-            <section className="grid gap-6 lg:grid-cols-2">
-              <article className="rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
-                <h2 className="text-xl font-semibold tracking-tight text-gray-900">
-                  Upcoming appointments
-                </h2>
-                <div className="mt-4 grid gap-4">
-                  {selectedPatient.appointments.length === 0 ? (
-                    <p className="rounded-2xl bg-[#Eef1f4] px-4 py-3 text-sm text-gray-600">
-                      No appointments scheduled.
-                    </p>
-                  ) : (
-                    selectedPatient.appointments.map((item) => (
-                      <article
-                        key={item.id}
-                        className="rounded-3xl border border-black/5 bg-[#Eef1f4] p-4"
-                      >
-                        <p className="text-base font-semibold text-gray-900">
-                          {item.title}
-                        </p>
-                        <p className="mt-2 text-sm text-gray-600">
-                          {formatDateTime(item.appointmentAt)}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-500">
-                          {item.providerName || "Provider pending"} /{" "}
-                          {item.location || "Location pending"}
-                        </p>
-                      </article>
-                    ))
-                  )}
-                </div>
-              </article>
-
-              <article className="rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
-                <h2 className="text-xl font-semibold tracking-tight text-gray-900">
-                  Care-circle snapshot
-                </h2>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <InnerMetricCard
-                    label="Active caregivers"
-                    value={String(selectedPatient.careCircle.activeCaregivers)}
-                  />
-                  <InnerMetricCard
-                    label="Active family"
-                    value={String(selectedPatient.careCircle.activeFamilyMembers)}
-                  />
-                  <InnerMetricCard
-                    label="Pending requests"
-                    value={String(selectedPatient.careCircle.pendingRequests)}
-                  />
-                  <InnerMetricCard
-                    label="Missed meds today"
-                    value={String(medicationSummary.missedToday)}
-                  />
-                </div>
-              </article>
-            </section>
-          </div>
-        )}
-      </main>
-
-      <nav className="fixed bottom-0 left-0 right-0 z-[100] flex items-center justify-around rounded-t-[2.5rem] bg-white px-6 py-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t border-gray-100">
-        <NavIcon href="/family/dashboard" icon={Home} isActive={false} />
-        <NavIcon href="/family/updates" icon={BellRing} isActive />
-        <NavIcon href="/join" icon={UserPlus} isActive={false} />
-        <NavIcon href="/wellness" icon={Heart} isActive={false} />
-        <NavIcon href="/family/profile" icon={UserCircle} isActive={false} />
-      </nav>
+    <div className="pd-card p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${isToday ? "bg-blue-400" : "bg-[#4A7C59]"}`} />
+        <span className="text-[15px] font-bold">{time}</span>
+      </div>
+      <div className="ml-5">{children}</div>
     </div>
   );
 }
 
-function NavIcon({
-  href,
-  icon: Icon,
-  isActive,
-}: {
-  href: string;
-  icon: LucideIcon;
-  isActive: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`relative flex h-14 w-14 items-center justify-center transition-all duration-300 ${
-        isActive
-          ? "rounded-full bg-[#5C8B6B] shadow-lg scale-110"
-          : "rounded-full bg-transparent hover:bg-gray-50"
-      }`}
-    >
-      <Icon
-        size={24}
-        color={isActive ? "#FFFFFF" : "#5C8B6B"}
-        strokeWidth={isActive ? 2.5 : 2}
-        className="block"
-      />
-    </Link>
-  );
-}
+// Page
 
-function MetricCard(props: { label: string; value: string }) {
-  return (
-    <article className="rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
-      <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#5C8B6B]">
-        {props.label}
-      </p>
-      <p className="mt-3 text-3xl font-bold tracking-tight text-gray-900">
-        {props.value}
-      </p>
-    </article>
-  );
-}
+export default function FamilyUpdatesPage() {
+  const [tab, setTab] = useState<Tab>("medication");
+  const [activePatient, setActivePatient] = useState("1");
 
-function InnerMetricCard(props: { label: string; value: string }) {
   return (
-    <article className="rounded-3xl border border-black/5 bg-[#Eef1f4] p-4">
-      <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#5C8B6B]">
-        {props.label}
-      </p>
-      <p className="mt-2 text-2xl font-bold tracking-tight text-gray-900">
-        {props.value}
-      </p>
-    </article>
+    <main className="pd-page pb-10">
+
+      {/* Back */}
+      <div className="mb-4">
+        <Link href="/family/profile"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-bold !text-white"
+          style={{ background: "#4A7C59" }}>
+          <ChevronLeft className="w-4 h-4" /> BACK
+        </Link>
+      </div>
+
+      {/* Title */}
+      <h1 className="pd-heading mb-4">Activity Log</h1>
+
+      {/* Patient pills */}
+      <div className="flex gap-2 mb-4">
+        {SAMPLE_PATIENTS.map((p) => {
+          const isActive = p.id === activePatient;
+          return (
+            <button key={p.id} type="button" onClick={() => setActivePatient(p.id)}
+              className={`cg-patient-pill ${isActive ? "cg-patient-pill-active" : "cg-patient-pill-inactive"}`}>
+              <div className="cg-patient-icon"><UserRound className="w-4 h-4" /></div>
+              <span className="truncate">{p.name}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab filter */}
+      <div className="flex gap-1 mb-5 bg-[#F6F7F2] rounded-[14px] p-1 border border-[#2F3E34]/10">
+        {(["medication", "schedule", "activities"] as Tab[]).map((t) => (
+          <button key={t} type="button" onClick={() => setTab(t)}
+            className={`flex-1 py-2.5 rounded-[10px] text-[13px] font-bold capitalize transition ${
+              tab === t ? "bg-[#4A7C59] text-white shadow" : "text-[#2F3E34]/60"
+            }`}>
+            {t.charAt(0).toUpperCase() + t.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Medication tab */}
+      {tab === "medication" && (
+        <>
+          <h3 className="pd-section-heading mb-3">Today</h3>
+          <div className="flex flex-col gap-3 mb-5">
+            {SAMPLE_MED_LOGS.filter((l) => l.isToday).map((l) => (
+              <LogCard key={l.id} time={l.time} isToday>
+                <div className="flex items-center gap-3">
+                  <Pill className="w-5 h-5 text-[#2F3E34] flex-shrink-0" />
+                  <div>
+                    <p className="text-[14px] font-bold">{l.actor} logged Medication</p>
+                    <p className="text-[13px] opacity-60">| {l.name}</p>
+                  </div>
+                </div>
+              </LogCard>
+            ))}
+          </div>
+
+          <h3 className="pd-section-heading mb-3">Yesterday</h3>
+          <div className="flex flex-col gap-3">
+            {SAMPLE_MED_LOGS.filter((l) => !l.isToday).map((l) => (
+              <LogCard key={l.id} time={l.time} isToday={false}>
+                <div className="flex items-center gap-3">
+                  <Pill className="w-5 h-5 text-[#2F3E34] flex-shrink-0" />
+                  <div>
+                    <p className="text-[14px] font-bold">{l.actor} logged Medication</p>
+                    <p className="text-[13px] opacity-60">| {l.name}</p>
+                  </div>
+                </div>
+              </LogCard>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Schedule tab */}
+      {tab === "schedule" && (
+        <>
+          <h3 className="pd-section-heading mb-3">Today</h3>
+          <div className="flex flex-col gap-3 mb-5">
+            {SAMPLE_SCHEDULE_LOGS.filter((l) => l.isToday).map((l) => (
+              <LogCard key={l.id} time={l.time} isToday>
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-5 h-5 text-[#2F3E34] flex-shrink-0" />
+                  <div>
+                    <p className="text-[14px] font-bold">{l.title}</p>
+                    <p className="text-[13px] opacity-60">| {l.provider}</p>
+                  </div>
+                </div>
+              </LogCard>
+            ))}
+          </div>
+          <h3 className="pd-section-heading mb-3">Yesterday</h3>
+          <div className="flex flex-col gap-3">
+            {SAMPLE_SCHEDULE_LOGS.filter((l) => !l.isToday).map((l) => (
+              <LogCard key={l.id} time={l.time} isToday={false}>
+                <div className="flex items-center gap-3">
+                  <Calendar className="w-5 h-5 text-[#2F3E34] flex-shrink-0" />
+                  <div>
+                    <p className="text-[14px] font-bold">{l.title}</p>
+                    <p className="text-[13px] opacity-60">| {l.provider}</p>
+                  </div>
+                </div>
+              </LogCard>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Activities tab */}
+      {tab === "activities" && (
+        <>
+          <h3 className="pd-section-heading mb-3">Today</h3>
+          <div className="flex flex-col gap-3 mb-5">
+            {SAMPLE_ACTIVITY_LOGS.filter((l) => l.isToday).map((l) => (
+              <LogCard key={l.id} time={l.time} isToday>
+                <div className="flex items-center gap-3">
+                  <Activity className="w-5 h-5 text-[#2F3E34] flex-shrink-0" />
+                  <div>
+                    <p className="text-[14px] font-bold">{l.title}</p>
+                    <p className="text-[13px] opacity-60">| {l.status}</p>
+                  </div>
+                </div>
+              </LogCard>
+            ))}
+          </div>
+          <h3 className="pd-section-heading mb-3">Yesterday</h3>
+          <div className="flex flex-col gap-3">
+            {SAMPLE_ACTIVITY_LOGS.filter((l) => !l.isToday).map((l) => (
+              <LogCard key={l.id} time={l.time} isToday={false}>
+                <div className="flex items-center gap-3">
+                  <Activity className="w-5 h-5 text-[#2F3E34] flex-shrink-0" />
+                  <div>
+                    <p className="text-[14px] font-bold">{l.title}</p>
+                    <p className="text-[13px] opacity-60">| {l.status}</p>
+                  </div>
+                </div>
+              </LogCard>
+            ))}
+          </div>
+        </>
+      )}
+
+    </main>
   );
 }

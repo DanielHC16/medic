@@ -1,154 +1,293 @@
+"use client";
+
 import Link from "next/link";
-import { type LucideIcon, Home, Activity, UserPlus, Heart, User } from "lucide-react";
-
-import { CareAccessStatusPanel } from "@/components/care-access-status-panel";
-import { MedicationManager } from "@/components/medication-manager";
+import { useState } from "react";
 import {
-  getCareMemberDashboardData,
-  getMedicationAdherenceSummary,
-  listMedicationLogsForPatient,
-} from "@/lib/db/medic-data";
-import { requireRole } from "@/lib/auth/dal";
+  Sun, QrCode, UserRound, Bell, Pill, House, Clock, Heart,
+  User, CalendarDays, Stethoscope, MapPin, AlertTriangle,
+  Activity, UserPlus,
+} from "lucide-react";
+import { MedicationViewModal } from "@/components/medication-view-modal";
+import { AppointmentViewModal } from "@/components/appointment-view-modal";
 
-type CaregiverDashboardPageProps = {
-  searchParams: Promise<{
-    patientId?: string;
-  }>;
+// ─── Hardcoded sample data ────────────────────────────────────────────────────
+
+const PATIENTS = [
+  { id: "1", name: "Elderly 1" },
+  { id: "2", name: "Elderly 2" },
+];
+
+const MED_DETAIL = {
+  name: "Acetaminophen",
+  type: "Maintenance",
+  dosage: "20 mg",
+  prescriber: "Dr. Who",
+  form: "Pill",
+  intervalHours: 6,
+  scheduleTimes: ["8:00 AM", "2:00 PM", "8:00 PM"],
+  takenIndex: 0, // first slot is taken
+  taken: 1,
+  total: 3,
+  missed: 0,
+  notes: "Take after breakfast and before the evening meal.",
 };
 
-export default async function CaregiverDashboardPage({
-  searchParams,
-}: CaregiverDashboardPageProps) {
-  const user = await requireRole("caregiver");
-  const resolvedSearchParams = await searchParams;
-  const dashboard = await getCareMemberDashboardData({
-    patientUserId: resolvedSearchParams.patientId ?? null,
-    userId: user.userId,
-  });
+const APPT_DETAIL = {
+  status: "Scheduled",
+  date: "April 23, 2026",
+  time: "10:00 AM",
+  title: "Check Up",
+  provider: "Dr. Who",
+  location: "Manila Doctors Hospital",
+  notes: "Bring medication list.",
+};
 
-  if (!dashboard) {
-    return null;
-  }
+const DATA: Record<string, {
+  taken: number; total: number;
+  hasMissed: boolean; missedTime: string; missedMed: string;
+  nextMedTime: string; nextMedName: string; nextMedDose: string; nextMedInterval: string;
+  apptDay: string; apptTime: string; apptTitle: string; apptProvider: string; apptLocation: string;
+  actDone: number; actTotal: number;
+}> = {
+  "1": {
+    taken: 2, total: 5,
+    hasMissed: false, missedTime: "", missedMed: "",
+    nextMedTime: "4:00 PM", nextMedName: "Acetaminophen", nextMedDose: "1 Pill", nextMedInterval: "Every 6 Hours",
+    apptDay: "Today", apptTime: "10:00 AM", apptTitle: "Check Up", apptProvider: "Dr. Who", apptLocation: "Manila Doctors Hospital",
+    actDone: 0, actTotal: 3,
+  },
+  "2": {
+    taken: 3, total: 5,
+    hasMissed: true, missedTime: "8:00AM", missedMed: "Acetaminophen",
+    nextMedTime: "8:00 AM", nextMedName: "Acetaminophen", nextMedDose: "1 Pill", nextMedInterval: "Every 6 Hours",
+    apptDay: "Today", apptTime: "10:00 AM", apptTitle: "Check Up", apptProvider: "Dr. Who", apptLocation: "Manila Doctors Hospital",
+    actDone: 0, actTotal: 2,
+  },
+};
 
-  const selectedPatientId = dashboard.selectedPatient?.user.userId ?? null;
-  const [medicationSummary, medicationLogs] = selectedPatientId
-    ? await Promise.all([
-        getMedicationAdherenceSummary(selectedPatientId),
-        listMedicationLogsForPatient(selectedPatientId, 12),
-      ])
-    : [null, []];
+// ─── Modals ───────────────────────────────────────────────────────────────────
 
+// ─── Charts ───────────────────────────────────────────────────────────────────
+
+function MedicationDonutChart({ taken, total }: { taken: number; total: number }) {
+  const r = 36; const C = 2 * Math.PI * r; const safe = total || 1;
+  const tLen = (taken / safe) * C;
+  const pLen = C - tLen;
   return (
-    <div className="min-h-screen bg-[#Eef1f4] pb-32 font-sans">
-      <main className="px-6 pt-10">
-        {/* --- PATIENT SWITCHER --- */}
-        {dashboard.activeLinkedPatients.length > 1 ? (
-          <section className="mb-6 rounded-[2rem] border border-black/5 bg-white/90 p-6 shadow-sm">
-            <h2 className="text-xl font-semibold tracking-tight text-gray-900">
-              Patient switcher
-            </h2>
-            <div className="mt-4 flex flex-wrap gap-3">
-              {dashboard.activeLinkedPatients.map((patient) => (
-                <Link
-                  key={patient.relationshipId}
-                  href={`/caregiver/dashboard?patientId=${patient.patientUserId}`}
-                  className="rounded-full bg-[#Eef1f4] px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
-                >
-                  {patient.patientDisplayName} / {patient.relationshipStatus}
-                </Link>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {/* --- DASHBOARD METRICS & MEDICATION --- */}
-        {!dashboard.selectedPatient ? (
-          <CareAccessStatusPanel
-            linkedPatients={dashboard.linkedPatients}
-            role="caregiver"
-          />
-        ) : (
-          <div className="grid gap-6">
-            <section className="grid gap-4 md:grid-cols-3">
-              <MetricCard
-                title="Taken today"
-                value={`${dashboard.selectedPatient.medicationSummary.takenToday}/${dashboard.selectedPatient.medicationSummary.dueToday}`}
-              />
-              <MetricCard
-                title="Active medications"
-                value={String(dashboard.selectedPatient.medicationSummary.activeMedications)}
-              />
-              <MetricCard
-                title="Pending approvals"
-                value={String(dashboard.selectedPatient.careCircle.pendingRequests)}
-              />
-            </section>
-
-            <MedicationManager
-              canManage
-              contactMethod={user.preferences.preferredContactMethod}
-              items={dashboard.selectedPatient.medications}
-              logs={medicationLogs}
-              patientDisplayName={`${dashboard.selectedPatient.user.firstName} ${dashboard.selectedPatient.user.lastName}`}
-              patientUserId={dashboard.selectedPatient.user.userId}
-              role={user.role}
-              summary={medicationSummary ?? undefined}
-              timeFormat={user.preferences.timeFormat}
-              viewerDisplayName={`${user.firstName} ${user.lastName}`}
-            />
+    <div className="relative w-[110px] h-[110px] flex-shrink-0">
+      <svg viewBox="0 0 100 100" className="w-full h-full">
+        <g transform="rotate(-90 50 50)">
+          <circle cx="50" cy="50" r={r} fill="none" stroke="#E5E7EB" strokeWidth="16" />
+          {tLen > 0 && <circle cx="50" cy="50" r={r} fill="none" stroke="#4A7C59" strokeWidth="16" strokeDasharray={`${tLen} ${C}`} strokeDashoffset={0} />}
+          {pLen > 0 && <circle cx="50" cy="50" r={r} fill="none" stroke="#E9C46A" strokeWidth="16" strokeDasharray={`${pLen} ${C}`} strokeDashoffset={-tLen} />}
+        </g>
+      </svg>
+    </div>
+  );
+}
+function ActivityBarChart({ done, total }: { done: number; total: number }) {
+  const pending = total - done;
+  const bars = [
+    { label: "Done",    value: done,    color: "#4A7C59" },
+    { label: "Pending", value: pending, color: "#E9C46A" },
+  ];
+  const maxVal = Math.max(done, pending, 1);
+  return (
+    <div className="w-full flex-1 flex flex-col">
+      <div className="flex items-end gap-3 flex-1">
+        {bars.map((b) => (
+          <div key={b.label} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <span className="text-[13px] font-bold">{b.value}</span>
+            <div className="w-full rounded-t-lg" style={{ background: b.color, height: `${Math.max(6, (b.value / maxVal) * 100)}%` }} />
+            <span className="text-[13px] font-semibold opacity-60">{b.label}</span>
           </div>
-        )}
-      </main>
-
-      {/* --- BOTTOM NAVIGATION BAR --- */}
-      <nav className="fixed bottom-0 left-0 right-0 z-[100] flex items-center justify-around rounded-t-[2.5rem] border-t border-gray-100 bg-white px-4 py-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-        <NavIcon href="/caregiver/dashboard" icon={Home} isActive />
-        <NavIcon href="/caregiver/monitoring" icon={Activity} isActive={false} />
-        <NavIcon href="/join" icon={UserPlus} isActive={false} />
-        <NavIcon href="/wellness" icon={Heart} isActive={false} />
-        <NavIcon href="/caregiver/profile" icon={User} isActive={false} />
-      </nav>
+        ))}
+      </div>
+      <p className="text-[13px] text-center opacity-50 mt-2">{done} of {total} done</p>
     </div>
   );
 }
 
-function NavIcon({
-  href,
-  icon: Icon,
-  isActive,
-}: {
-  href: string;
-  icon: LucideIcon;
-  isActive: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`relative flex h-14 w-14 items-center justify-center transition-all duration-300 ${
-        isActive
-          ? "scale-110 rounded-full bg-[#5C8B6B] shadow-lg"
-          : "rounded-full bg-transparent hover:bg-gray-50"
-      }`}
-    >
-      <Icon
-        size={24}
-        color={isActive ? "#FFFFFF" : "#5C8B6B"}
-        strokeWidth={isActive ? 2.5 : 2}
-        className="block"
-      />
-    </Link>
-  );
-}
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
-function MetricCard(props: { title: string; value: string }) {
+export default function CaregiverDashboardPage() {
+  const [activePatient, setActivePatient] = useState("1");
+  const [medModalOpen, setMedModalOpen] = useState(false);
+  const [apptModalOpen, setApptModalOpen] = useState(false);
+  const today = new Date();
+  const dateString = today.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "long", timeZone: "Asia/Manila" }).toUpperCase();
+  const d = DATA[activePatient];
+
   return (
-    <article className="rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
-      <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#5C8B6B]">
-        {props.title}
-      </p>
-      <p className="mt-3 text-4xl font-bold tracking-tight text-gray-900">
-        {props.value}
-      </p>
-    </article>
+    <main className="pd-page">
+
+      {/* Header */}
+      <header className="flex justify-between items-start mb-5">
+        <div>
+          <h1 className="pd-heading">Welcome, User!</h1>
+          <div className="pd-date"><Sun className="w-3.5 h-3.5" /><span>{dateString}</span></div>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <button className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md" style={{ background: "#2F3E34" }} aria-label="QR Code">
+            <QrCode className="w-5 h-5" />
+          </button>
+          <Link href="/caregiver/profile">
+            <div className="w-10 h-10 rounded-full border-2 border-[#2F3E34] flex items-center justify-center bg-[#E5E7EB]">
+              <UserRound className="w-6 h-6 text-[#2F3E34]" />
+            </div>
+          </Link>
+        </div>
+      </header>
+
+      {/* Patient Profiles */}
+      <section className="mb-4">
+        <h3 className="pd-section-heading mb-3">Patient Profiles</h3>
+        <div className="flex gap-2">
+          {PATIENTS.map((p) => {
+            const isActive = p.id === activePatient;
+            return (
+              <button key={p.id} type="button" onClick={() => setActivePatient(p.id)}
+                className={`cg-patient-pill ${isActive ? "cg-patient-pill-active" : "cg-patient-pill-inactive"}`}>
+                <div className="cg-patient-icon"><UserRound className="w-4 h-4" /></div>
+                <span className="truncate">{p.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="flex flex-col gap-3">
+        <h3 className="pd-section-heading">Today&apos;s Care Timeline</h3>
+
+        {/* Medicine Taken */}
+        <div className="pd-card-green p-5">
+          <Pill className="absolute top-4 right-4 w-5 h-5 text-white/70" />
+          <p className="text-[13px] font-semibold text-white/90 mb-1">Medicine Taken today</p>
+          <p className="text-[42px] font-bold text-white leading-none" style={{ fontFamily: "var(--font-heading)" }}>
+            {d.taken}<span className="text-[22px] font-semibold opacity-80"> / {d.total}</span>
+          </p>
+        </div>
+
+        {/* Alert — only when hasMissed */}
+        {d.hasMissed && (
+          <div className="rounded-[20px] p-4" style={{ background: "#C0392B", border: "1px solid #922B21" }}>
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="w-5 h-5 text-white flex-shrink-0" />
+              <p className="text-[15px] font-bold text-white">Recent Alerts!</p>
+            </div>
+            <p className="text-[13px] text-white/90 mb-3">
+              {PATIENTS.find((p) => p.id === activePatient)?.name} : <span className="font-bold">Missed</span> a dose at {d.missedTime} ({d.missedMed})
+            </p>
+            <div className="flex justify-end">
+              <button className="text-[13px] font-bold px-4 py-2 rounded-full bg-[#4A7C59] text-white uppercase tracking-wide">
+                Mark as Taken
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Next Medication */}
+        <div className="pd-card p-4 cursor-pointer hover:opacity-90 transition" onClick={() => setMedModalOpen(true)}>
+          <div className="flex justify-between items-center mb-1">
+            <p className="text-[15px] font-bold">Next Medication:</p>
+            <Bell className="w-4 h-4 opacity-70" />
+          </div>
+          <p className="text-[15px] font-semibold opacity-70 mb-2">{d.nextMedTime}</p>
+          <div className="flex items-center gap-3">
+            <Pill className="w-6 h-6 text-[#2F3E34] flex-shrink-0" />
+            <div>
+              <p className="text-[24px] font-extrabold leading-tight" style={{ fontFamily: "var(--font-heading)" }}>{d.nextMedName}</p>
+              <p className="text-[13px] font-semibold opacity-60">{d.nextMedDose} | {d.nextMedInterval}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Upcoming Appointments */}
+        <h3 className="pd-section-heading mt-2">Upcoming Appointments</h3>
+        <div className="pd-card p-5 cursor-pointer hover:opacity-90 transition" onClick={() => setApptModalOpen(true)}>
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-blue-400 flex-shrink-0" />
+              <span className="text-[15px] font-bold">{d.apptDay}</span>
+            </div>
+            <span className="text-[15px] font-bold">at {d.apptTime}</span>
+          </div>
+          <div className="flex items-start gap-3">
+            <CalendarDays className="w-8 h-8 flex-shrink-0 mt-1" />
+            <div className="flex flex-col gap-1">
+              <h4 className="text-[22px] font-bold leading-tight" style={{ fontFamily: "var(--font-heading)" }}>{d.apptTitle}</h4>
+              <div className="flex items-center gap-2 text-[13px] opacity-70">
+                <Stethoscope className="w-4 h-4 flex-shrink-0" /><span>|</span><span>{d.apptProvider}</span>
+              </div>
+              <div className="flex items-center gap-2 text-[13px] opacity-70">
+                <MapPin className="w-4 h-4 flex-shrink-0" /><span>|</span><span>{d.apptLocation}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Progress Summary */}
+        <h3 className="pd-section-heading mt-2">Progress Summary</h3>
+        <div className="pd-progress-grid">
+          <div className="pd-card p-4 flex flex-col gap-2 h-full">
+            <div className="w-full text-center">
+              <p className="text-[13px] font-bold">Medications</p>
+              <p className="text-[22px] font-bold leading-tight" style={{ fontFamily: "var(--font-heading)" }}>
+                {d.taken}<span className="text-[15px] font-semibold opacity-60"> / {d.total}</span>
+              </p>
+              <p className="text-[13px] opacity-50">taken today</p>
+            </div>
+            <div className="flex-1 flex items-center justify-center">
+              <MedicationDonutChart taken={d.taken} total={d.total} />
+            </div>
+            <div className="flex w-full justify-between px-1">
+              {[{ color: "#4A7C59", label: "Taken" }, { color: "#E9C46A", label: "Pending" }].map((l) => (
+                <div key={l.label} className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: l.color }} />
+                  <span className="text-[13px] font-semibold opacity-70">{l.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="pd-card p-4 flex flex-col gap-2 h-full">
+            <div className="w-full text-center">
+              <p className="text-[13px] font-bold">Activities</p>
+              <p className="text-[22px] font-bold leading-tight" style={{ fontFamily: "var(--font-heading)" }}>
+                {d.actDone}<span className="text-[15px] font-semibold opacity-60"> / {d.actTotal}</span>
+              </p>
+              <p className="text-[13px] opacity-50">completed today</p>
+            </div>
+            <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
+              <ActivityBarChart done={d.actDone} total={d.actTotal} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Nav — caregiver routes */}
+      <nav className="pd-nav">
+        <div className="pd-nav-active">
+          <Link href="/caregiver/dashboard" className="flex items-center justify-center w-full h-full"><House className="w-8 h-8" /></Link>
+        </div>
+        <Link href="/caregiver/monitoring" className="pd-nav-link"><Activity className="w-7 h-7" /></Link>
+        <Link href="/join" className="pd-nav-link"><UserPlus className="w-7 h-7" /></Link>
+        <Link href="/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
+        <Link href="/caregiver/profile" className="pd-nav-link"><User className="w-7 h-7" /></Link>
+      </nav>
+      {medModalOpen && (
+        <MedicationViewModal
+          data={MED_DETAIL}
+          canEdit
+          onClose={() => setMedModalOpen(false)}
+        />
+      )}
+      {apptModalOpen && (
+        <AppointmentViewModal
+          data={APPT_DETAIL}
+          canEdit
+          onClose={() => setApptModalOpen(false)}
+        />
+      )}
+    </main>
   );
 }
