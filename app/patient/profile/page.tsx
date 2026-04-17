@@ -68,11 +68,11 @@ export default function PatientProfilePage() {
         </div>
       </nav>
 
-      {editOpen && user && (
+      {editOpen && (
         <ProfileEditModal
           initialName={fullName}
-          initialEmail={user.email}
-          initialPhone={user.phone ?? ""}
+          initialEmail={user?.email ?? ""}
+          initialPhone={user?.phone ?? ""}
           onClose={() => setEditOpen(false)}
         />
       )}
