@@ -53,6 +53,11 @@ function createUser(chatbotEnabled = true) {
 
 function createDashboard() {
   return {
+    activitySummary: {
+      activePlans: 0,
+      completedToday: 0,
+      missedToday: 0,
+    },
     activityPlans: [],
     appointments: [],
     careCircle: {
@@ -72,6 +77,7 @@ function createDashboard() {
       emergencyNotes: null,
       patientUserId: "patient-1",
     },
+    recentMedicationLogs: [],
     user: {
       accountStatus: "active",
       email: "patient@example.com",

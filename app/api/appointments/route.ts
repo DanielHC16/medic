@@ -4,7 +4,11 @@ import {
   listAppointmentsForPatient,
 } from "@/lib/db/medic-data";
 import { revalidateMedicAppPaths } from "@/lib/revalidation";
-import { getOptionalString, getRequiredString } from "@/lib/validation";
+import {
+  getOptionalImageDataUrl,
+  getOptionalString,
+  getRequiredString,
+} from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +52,7 @@ export async function POST(request: Request) {
     await createAppointment({
       appointmentAt: getRequiredString(body.appointmentAt, "Appointment time"),
       createdByUserId: scope.user.userId,
+      imageDataUrl: getOptionalImageDataUrl(body.imageDataUrl, "Appointment image"),
       location: getOptionalString(body.location),
       notes: getOptionalString(body.notes),
       patientUserId: scope.patientUserId,

@@ -177,4 +177,134 @@ describe("WellnessManager AI flow", () => {
     );
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it("locks a once-daily routine after it has already been logged today", async () => {
+    const todayKey = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Manila",
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        createJsonResponse({
+          generatedAt: `${todayKey}T00:00:00.000Z`,
+          ok: true,
+          recommendation: "Keep the pace steady today.",
+          routine: null,
+          source: "fallback",
+        }),
+      ),
+    );
+
+    render(
+      <WellnessManager
+        activityLogs={[
+          {
+            activityPlanId: "routine-1",
+            activityTitle: "Mobility Reset",
+            completionStatus: "done",
+            completedAt: `${todayKey}T08:00:00.000Z`,
+            createdAt: `${todayKey}T08:00:00.000Z`,
+            id: "log-1",
+            notes: null,
+            recordedByDisplayName: "Caregiver One",
+            scheduledFor: todayKey,
+          },
+        ]}
+        activityPlans={[
+          {
+            category: "Mobility",
+            createdByDisplayName: "Caregiver One",
+            daysOfWeek: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+            frequencyType: "daily",
+            id: "routine-1",
+            imageDataUrl: null,
+            instructions: "Keep the pace light.",
+            isActive: true,
+            latestCompletedAt: `${todayKey}T08:00:00.000Z`,
+            latestCompletionStatus: "done",
+            targetMinutes: 15,
+            title: "Mobility Reset",
+          },
+        ]}
+        activitySummary={{
+          activePlans: 1,
+          completedToday: 1,
+          missedToday: 0,
+        }}
+        appointments={[]}
+        canManage
+        patientUserId="patient-1"
+      />,
+    );
+
+    expect(screen.getByText("1 of 1 logs used today.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mark done" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Mark missed" })).toBeDisabled();
+  });
+
+  it("keeps a twice-daily routine available until the second log is used", async () => {
+    const todayKey = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Manila",
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        createJsonResponse({
+          generatedAt: `${todayKey}T00:00:00.000Z`,
+          ok: true,
+          recommendation: "A second routine slot is still available today.",
+          routine: null,
+          source: "fallback",
+        }),
+      ),
+    );
+
+    render(
+      <WellnessManager
+        activityLogs={[
+          {
+            activityPlanId: "routine-2",
+            activityTitle: "Breathing Reset",
+            completionStatus: "done",
+            completedAt: `${todayKey}T08:00:00.000Z`,
+            createdAt: `${todayKey}T08:00:00.000Z`,
+            id: "log-2",
+            notes: null,
+            recordedByDisplayName: "Caregiver One",
+            scheduledFor: todayKey,
+          },
+        ]}
+        activityPlans={[
+          {
+            category: "Breathing",
+            createdByDisplayName: "Caregiver One",
+            daysOfWeek: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+            frequencyType: "twice_daily",
+            id: "routine-2",
+            imageDataUrl: null,
+            instructions: "Pause if dizzy.",
+            isActive: true,
+            latestCompletedAt: `${todayKey}T08:00:00.000Z`,
+            latestCompletionStatus: "done",
+            targetMinutes: 10,
+            title: "Breathing Reset",
+          },
+        ]}
+        activitySummary={{
+          activePlans: 1,
+          completedToday: 1,
+          missedToday: 0,
+        }}
+        appointments={[]}
+        canManage
+        patientUserId="patient-1"
+      />,
+    );
+
+    expect(screen.getByText("1 of 2 logs used today.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mark done" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Mark missed" })).toBeEnabled();
+  });
 });

@@ -127,7 +127,7 @@ export function MedicationViewModal({ data, canEdit = false, onClose }: Props) {
             return `${String(h24).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
           })()}
           onCancel={() => setEditingSlot(null)}
-          onSave={(newTime) => {
+          onSave={() => {
             setEditingSlot(null);
           }}
         />

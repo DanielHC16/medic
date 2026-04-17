@@ -38,6 +38,11 @@ vi.mock("@/lib/wellness-ai", () => ({
 
 function createDashboard() {
   return {
+    activitySummary: {
+      activePlans: 1,
+      completedToday: 1,
+      missedToday: 0,
+    },
     activityPlans: [],
     appointments: [],
     careCircle: {
@@ -57,6 +62,7 @@ function createDashboard() {
       emergencyNotes: null,
       patientUserId: "patient-1",
     },
+    recentMedicationLogs: [],
     user: {
       accountStatus: "active",
       email: "patient@example.com",

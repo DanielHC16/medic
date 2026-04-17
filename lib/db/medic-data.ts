@@ -105,6 +105,7 @@ type ActivityRow = {
   days_of_week: string[] | null;
   frequency_type: string;
   id: string;
+  image_data_url: string | null;
   instructions: string | null;
   is_active: boolean;
   latest_completed_at: string | null;
@@ -142,6 +143,7 @@ type ActivityLogRow = {
 type AppointmentRow = {
   appointment_at: string;
   id: string;
+  image_data_url: string | null;
   location: string | null;
   notes: string | null;
   provider_name: string | null;
@@ -842,6 +844,7 @@ const schemaStatements = [
     created_by_user_id text not null references users(id) on delete cascade,
     title text not null,
     category text not null,
+    image_data_url text,
     instructions text,
     frequency_type text not null,
     days_of_week text[] not null default '{}',
@@ -863,6 +866,7 @@ const schemaStatements = [
     constraint activity_logs_completion_status_check
       check (completion_status in ('planned', 'done', 'missed'))
   )`,
+  `alter table activity_plans add column if not exists image_data_url text`,
   `create table if not exists appointments (
     id text primary key,
     patient_user_id text not null references users(id) on delete cascade,
@@ -870,12 +874,14 @@ const schemaStatements = [
     title text not null,
     provider_name text,
     location text,
+    image_data_url text,
     appointment_at timestamptz not null,
     status text not null default 'scheduled',
     notes text,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
   )`,
+  `alter table appointments add column if not exists image_data_url text`,
   `create table if not exists sync_events (
     id text primary key,
     patient_user_id text not null references users(id) on delete cascade,
@@ -979,6 +985,7 @@ function mapActivityRow(row: ActivityRow): ActivityPlanRecord {
     daysOfWeek: row.days_of_week ?? [],
     frequencyType: row.frequency_type,
     id: row.id,
+    imageDataUrl: row.image_data_url,
     instructions: row.instructions,
     isActive: row.is_active,
     latestCompletedAt: row.latest_completed_at,
@@ -992,6 +999,7 @@ function mapAppointmentRow(row: AppointmentRow): AppointmentRecord {
   return {
     appointmentAt: row.appointment_at,
     id: row.id,
+    imageDataUrl: row.image_data_url,
     location: row.location,
     notes: row.notes,
     providerName: row.provider_name,
@@ -2812,6 +2820,7 @@ export async function createActivityPlan(input: {
   createdByUserId: string;
   daysOfWeek: string[];
   frequencyType: string;
+  imageDataUrl?: string | null;
   instructions?: string | null;
   patientUserId: string;
   targetMinutes?: number | null;
@@ -2824,19 +2833,21 @@ export async function createActivityPlan(input: {
        created_by_user_id,
        title,
        category,
+       image_data_url,
        instructions,
        frequency_type,
        days_of_week,
        target_minutes,
        is_active
      )
-     values ($1, $2, $3, $4, $5, $6, $7, $8::text[], $9, true)`,
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9::text[], $10, true)`,
     [
       createId("activity"),
       input.patientUserId,
       input.createdByUserId,
       input.title.trim(),
       input.category.trim(),
+      input.imageDataUrl?.trim() || null,
       input.instructions?.trim() || null,
       input.frequencyType.trim(),
       input.daysOfWeek,
@@ -2849,12 +2860,20 @@ async function getActivityOwnership(input: {
   activityPlanId: string;
   patientUserId: string;
 }) {
-  return queryOne<{ id: string }>(
-    `select id
+  return queryOne<{
+    days_of_week: string[] | null;
+    frequency_type: string;
+    id: string;
+  }>(
+    `select id, frequency_type, days_of_week
      from activity_plans
      where id = $1 and patient_user_id = $2`,
     [input.activityPlanId, input.patientUserId],
   );
+}
+
+function getActivityCompletionLimit(frequencyType: string) {
+  return frequencyType === "twice_daily" ? 2 : 1;
 }
 
 export async function listActivityPlansForPatient(
@@ -2866,6 +2885,7 @@ export async function listActivityPlansForPatient(
        activity_plans.id,
        activity_plans.title,
        activity_plans.category,
+       activity_plans.image_data_url,
        activity_plans.instructions,
        activity_plans.frequency_type,
        activity_plans.days_of_week,
@@ -2897,6 +2917,7 @@ export async function updateActivityPlan(input: {
   category: string;
   daysOfWeek: string[];
   frequencyType: string;
+  imageDataUrl?: string | null;
   instructions?: string | null;
   patientUserId: string;
   targetMinutes?: number | null;
@@ -2915,15 +2936,17 @@ export async function updateActivityPlan(input: {
     `update activity_plans
      set title = $1,
          category = $2,
-         instructions = $3,
-         frequency_type = $4,
-         days_of_week = $5::text[],
-         target_minutes = $6,
+         image_data_url = $3,
+         instructions = $4,
+         frequency_type = $5,
+         days_of_week = $6::text[],
+         target_minutes = $7,
          updated_at = now()
-     where id = $7 and patient_user_id = $8`,
+     where id = $8 and patient_user_id = $9`,
     [
       input.title.trim(),
       input.category.trim(),
+      input.imageDataUrl?.trim() || null,
       input.instructions?.trim() || null,
       input.frequencyType.trim(),
       input.daysOfWeek,
@@ -2967,6 +2990,35 @@ export async function recordActivityLog(input: {
 
   if (!ownership) {
     throw new Error("That routine could not be found for this patient.");
+  }
+
+  const todayWeekday = new Date().toLocaleDateString("en-US", {
+    timeZone: "Asia/Manila",
+    weekday: "short",
+  });
+  const scheduledDays = ownership.days_of_week ?? [];
+
+  if (scheduledDays.length > 0 && !scheduledDays.includes(todayWeekday)) {
+    throw new Error("This routine is not scheduled for today.");
+  }
+
+  const completionLimit = getActivityCompletionLimit(ownership.frequency_type);
+  const existingLogs = await queryOne<{ total: number }>(
+    `select count(*)::int as total
+     from activity_logs
+     where activity_plan_id = $1
+       and patient_user_id = $2
+       and scheduled_for = current_date
+       and completion_status in ('done', 'missed')`,
+    [input.activityPlanId, input.patientUserId],
+  );
+
+  if ((existingLogs?.total ?? 0) >= completionLimit) {
+    throw new Error(
+      completionLimit === 1
+        ? "This routine was already logged for today."
+        : "This routine already reached its completion limit for today.",
+    );
   }
 
   await queryMany(
@@ -3056,6 +3108,7 @@ export async function getActivitySummary(patientUserId: string) {
 export async function createAppointment(input: {
   appointmentAt: string;
   createdByUserId: string;
+  imageDataUrl?: string | null;
   location?: string | null;
   notes?: string | null;
   patientUserId: string;
@@ -3070,11 +3123,12 @@ export async function createAppointment(input: {
        title,
        provider_name,
        location,
+       image_data_url,
        appointment_at,
        status,
        notes
      )
-     values ($1, $2, $3, $4, $5, $6, $7, 'scheduled', $8)`,
+     values ($1, $2, $3, $4, $5, $6, $7, $8, 'scheduled', $9)`,
     [
       createId("appointment"),
       input.patientUserId,
@@ -3082,6 +3136,7 @@ export async function createAppointment(input: {
       input.title.trim(),
       input.providerName?.trim() || null,
       input.location?.trim() || null,
+      input.imageDataUrl?.trim() || null,
       input.appointmentAt,
       input.notes?.trim() || null,
     ],
@@ -3103,6 +3158,7 @@ async function getAppointmentOwnership(input: {
 export async function updateAppointment(input: {
   appointmentAt: string;
   appointmentId: string;
+  imageDataUrl?: string | null;
   location?: string | null;
   notes?: string | null;
   patientUserId: string;
@@ -3124,15 +3180,17 @@ export async function updateAppointment(input: {
      set title = $1,
          provider_name = $2,
          location = $3,
-         appointment_at = $4,
-         status = $5,
-         notes = $6,
+         image_data_url = $4,
+         appointment_at = $5,
+         status = $6,
+         notes = $7,
          updated_at = now()
-     where id = $7 and patient_user_id = $8`,
+     where id = $8 and patient_user_id = $9`,
     [
       input.title.trim(),
       input.providerName?.trim() || null,
       input.location?.trim() || null,
+      input.imageDataUrl?.trim() || null,
       input.appointmentAt,
       input.status.trim(),
       input.notes?.trim() || null,
@@ -3171,6 +3229,7 @@ export async function listAppointmentsForPatient(
        appointments.title,
        appointments.provider_name,
        appointments.location,
+       appointments.image_data_url,
        appointments.appointment_at::text,
        appointments.status,
        appointments.notes
@@ -3264,13 +3323,23 @@ async function getCareCircleCounts(patientUserId: string) {
 }
 
 export async function getPatientDashboardData(patientUserId: string) {
-  const [user, patientProfile, medications, activityPlans, appointments] =
+  const [
+    user,
+    patientProfile,
+    medications,
+    activityPlans,
+    appointments,
+    recentMedicationLogs,
+    activitySummary,
+  ] =
     await Promise.all([
       getUserById(patientUserId),
       getPatientProfile(patientUserId),
       listMedicationsForPatient(patientUserId),
       listActivityPlansForPatient(patientUserId),
       listAppointmentsForPatient(patientUserId),
+      listMedicationLogsForPatient(patientUserId, 12),
+      getActivitySummary(patientUserId),
     ]);
 
   if (!user) {
@@ -3283,12 +3352,14 @@ export async function getPatientDashboardData(patientUserId: string) {
   ]);
 
   return {
+    activitySummary,
     activityPlans,
     appointments,
     careCircle,
     medicationSummary,
     medications,
     patientProfile,
+    recentMedicationLogs,
     user,
   } satisfies PatientDashboardData;
 }

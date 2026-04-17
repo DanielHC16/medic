@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { House, Activity, UserPlus, Heart, User } from "lucide-react";
 
 import { CareAccessStatusPanel } from "@/components/care-access-status-panel";
+import { CareMemberBottomNav } from "@/components/care-member-bottom-nav";
 import { MedicationManager } from "@/components/medication-manager";
 import { formatDateTime } from "@/lib/display";
 import { requireRole } from "@/lib/auth/dal";
@@ -117,16 +117,11 @@ export default async function CaregiverMonitoringPage({
         )}
       </main>
 
-      {/* --- BOTTOM NAVIGATION BAR --- */}
-      <nav className="pd-nav">
-        <Link href="/caregiver/dashboard" className="pd-nav-link"><House className="w-7 h-7" /></Link>
-        <div className="pd-nav-active">
-          <Link href="/caregiver/monitoring" className="flex items-center justify-center w-full h-full"><Activity className="w-8 h-8" /></Link>
-        </div>
-        <Link href="/caregiver/join" className="pd-nav-link"><UserPlus className="w-7 h-7" /></Link>
-        <Link href="/caregiver/wellness" className="pd-nav-link"><Heart className="w-7 h-7" /></Link>
-        <Link href="/caregiver/profile" className="pd-nav-link"><User className="w-7 h-7" /></Link>
-      </nav>
+      <CareMemberBottomNav
+        activeItem="activity"
+        patientUserId={selectedPatientId}
+        role="caregiver"
+      />
     </div>
   );
 }
