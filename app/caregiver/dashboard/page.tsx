@@ -123,20 +123,8 @@ export default async function CaregiverDashboardPage({
 
 function NavIcon({ href, icon: Icon, isActive }: { href: string; icon: any; isActive: boolean }) {
   return (
-    <Link
-      href={href}
-      className={`relative flex h-14 w-14 items-center justify-center transition-all duration-300 ${
-        isActive 
-          ? "rounded-full bg-[#5C8B6B] shadow-lg scale-110" 
-          : "rounded-full bg-transparent hover:bg-gray-50"
-      }`}
-    >
-      <Icon 
-        size={24}
-        color={isActive ? "#FFFFFF" : "#5C8B6B"} 
-        strokeWidth={isActive ? 2.5 : 2}
-        className="block"
-      />
+    <Link href={href} className={`p-3.5 transition-all duration-300 ${isActive ? "bg-[#4A6D52] rounded-2xl shadow-lg scale-110" : "hover:bg-gray-50 rounded-2xl"}`}>
+      <Icon size={24} color={isActive ? "#FFFFFF" : "#4A6D52"} strokeWidth={isActive ? 2.5 : 2} />
     </Link>
   );
 }
