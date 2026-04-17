@@ -3,6 +3,7 @@ import {
   archiveMedication,
   updateMedicationWithSchedule,
 } from "@/lib/db/medic-data";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import {
   getOptionalString,
   getRequiredString,
@@ -46,6 +47,8 @@ export async function PATCH(
       timesOfDay: getStringArray(body.timesOfDay),
     });
 
+    revalidateMedicAppPaths();
+
     return Response.json({
       ok: true,
     });
@@ -83,6 +86,8 @@ export async function DELETE(
       medicationId: id,
       patientUserId: scope.patientUserId,
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       ok: true,

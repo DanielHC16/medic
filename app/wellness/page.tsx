@@ -1,8 +1,13 @@
 import Link from "next/link";
-import { Home, Activity, UserPlus, Heart, User } from "lucide-react";
+import { type LucideIcon, Home, Activity, UserPlus, Heart, User } from "lucide-react";
 
 import { WellnessManager } from "@/components/wellness-manager";
-import { canManagePatientData, requirePatientScope } from "@/lib/auth/dal";
+import {
+  canManagePatientData,
+  getDefaultRouteForRole,
+  getProfileRouteForRole,
+  requirePatientScope,
+} from "@/lib/auth/dal";
 import {
   getActivitySummary,
   listActivityLogsForPatient,
@@ -23,10 +28,19 @@ export default async function WellnessPage({ searchParams }: WellnessPageProps) 
   const userRole = scope.user.role;
   const dashboardHref =
     userRole === "patient"
-      ? "/patient/dashboard"
-      : `/${userRole === "caregiver" ? "caregiver" : "family"}/dashboard${
+      ? getDefaultRouteForRole(userRole)
+      : `${getDefaultRouteForRole(userRole)}${
           scope.patientUserId ? `?patientId=${scope.patientUserId}` : ""
         }`;
+  const secondaryHref =
+    userRole === "patient"
+      ? "/patient/schedule"
+      : userRole === "caregiver"
+        ? `/caregiver/monitoring${scope.patientUserId ? `?patientId=${scope.patientUserId}` : ""}`
+        : `/family/updates${scope.patientUserId ? `?patientId=${scope.patientUserId}` : ""}`;
+  const tertiaryHref =
+    userRole === "patient" ? "/patient/care-circle" : "/join";
+  const profileHref = getProfileRouteForRole(userRole);
 
   const [activityPlans, appointments, activityLogs, activitySummary] = scope.patientUserId 
     ? await Promise.all([
@@ -82,21 +96,21 @@ export default async function WellnessPage({ searchParams }: WellnessPageProps) 
       <nav className="fixed bottom-0 left-0 right-0 z-[100] flex items-center justify-around rounded-t-[2.5rem] bg-white px-4 py-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t border-gray-100">
         {/* Home */}
         <NavIcon 
-          href={userRole === "caregiver" ? "/caregiver/dashboard" : "/family/dashboard"} 
+          href={dashboardHref}
           icon={Home} 
           isActive={false} 
         />
         
-        {/* Monitoring */}
+        {/* Role workspace */}
         <NavIcon 
-          href="/caregiver/monitoring" 
+          href={secondaryHref}
           icon={Activity} 
           isActive={false} 
         />
 
-        {/* Join */}
+        {/* Join / Care circle */}
         <NavIcon 
-          href="/join" 
+          href={tertiaryHref}
           icon={UserPlus} 
           isActive={false} 
         />
@@ -110,7 +124,7 @@ export default async function WellnessPage({ searchParams }: WellnessPageProps) 
 
         {/* Profile */}
         <NavIcon 
-          href={`/${userRole}/profile`} 
+          href={profileHref}
           icon={User} 
           isActive={false} 
         />
@@ -122,7 +136,15 @@ export default async function WellnessPage({ searchParams }: WellnessPageProps) 
 /**
  * Shared NavIcon Component 
  */
-function NavIcon({ href, icon: Icon, isActive }: { href: string; icon: any; isActive: boolean }) {
+function NavIcon({
+  href,
+  icon: Icon,
+  isActive,
+}: {
+  href: string;
+  icon: LucideIcon;
+  isActive: boolean;
+}) {
   return (
     <Link
       href={href}

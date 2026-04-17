@@ -3,6 +3,7 @@ import {
   createActivityPlan,
   listActivityPlansForPatient,
 } from "@/lib/db/medic-data";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import {
   getOptionalNumber,
   getOptionalString,
@@ -59,6 +60,8 @@ export async function POST(request: Request) {
       targetMinutes: getOptionalNumber(body.targetMinutes),
       title: getRequiredString(body.title, "Title"),
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       ok: true,

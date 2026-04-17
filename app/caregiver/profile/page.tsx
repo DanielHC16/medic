@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Home, Activity, UserPlus, Heart, User } from "lucide-react";
+import { type LucideIcon, Home, Activity, UserPlus, Heart, User } from "lucide-react";
 
 import { ProfilePageContent } from "@/components/profile-page-content";
 import { requireRole } from "@/lib/auth/dal";
@@ -8,10 +8,9 @@ import { LogoutButton } from "@/components/logout-button";
 
 export default async function CaregiverProfilePage() {
   const user = await requireRole("caregiver");
-  const records = await listLinkedPatientsForMember(user.userId);
-
-  // Mark the profile tab as active
-  const currentPath = "/caregiver/profile";
+  const records = (await listLinkedPatientsForMember(user.userId)).filter(
+    (item) => item.relationshipStatus !== "revoked",
+  );
 
   return (
     <div className="min-h-screen bg-[#Eef1f4] pb-32 font-sans">
@@ -100,7 +99,15 @@ export default async function CaregiverProfilePage() {
 /**
  * Shared NavIcon Component
  */
-function NavIcon({ href, icon: Icon, isActive }: { href: string; icon: any; isActive: boolean }) {
+function NavIcon({
+  href,
+  icon: Icon,
+  isActive,
+}: {
+  href: string;
+  icon: LucideIcon;
+  isActive: boolean;
+}) {
   return (
     <Link
       href={href}

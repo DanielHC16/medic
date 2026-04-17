@@ -3196,6 +3196,7 @@ export async function getCareMemberDashboardData(input: {
     : null;
 
   return {
+    activeLinkedPatients: activePatients,
     linkedPatients,
     selectedPatient,
     user,

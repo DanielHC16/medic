@@ -1,15 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getPatientDashboardData, listPatientConnections } from "@/lib/db/medic-data";
+import { getPatientDashboardData } from "@/lib/db/medic-data";
 import { formatDateTime } from "@/lib/display";
 import { requireRole } from "@/lib/auth/dal";
 
 export default async function PatientDashboardPage() {
   const user = await requireRole("patient");
-  const [dashboard, connections] = await Promise.all([
-    getPatientDashboardData(user.userId),
-    listPatientConnections(user.userId),
-  ]);
+  const dashboard = await getPatientDashboardData(user.userId);
 
   if (!dashboard) {
     return null;
@@ -45,10 +42,13 @@ export default async function PatientDashboardPage() {
           <button className="w-[42px] h-[42px] bg-[#425F4C] rounded-xl flex items-center justify-center text-white shadow-md hover:bg-[#344b3c] transition">
             <QrCodeIcon className="w-6 h-6" />
           </button>
-          <div className="w-[42px] h-[42px] bg-black rounded-full flex items-center justify-center shadow-md overflow-hidden border-2 border-transparent">
+          <Link
+            href="/profile"
+            className="w-[42px] h-[42px] bg-black rounded-full flex items-center justify-center shadow-md overflow-hidden border-2 border-transparent"
+          >
             {/* Replace with User Avatar Image if available */}
             <UserSolidIcon className="w-6 h-6 text-white" />
-          </div>
+          </Link>
         </div>
       </header>
 

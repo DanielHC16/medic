@@ -184,6 +184,7 @@ export type LinkedPatientSummary = {
 };
 
 export type CareMemberDashboardData = {
+  activeLinkedPatients: LinkedPatientSummary[];
   linkedPatients: LinkedPatientSummary[];
   selectedPatient: PatientDashboardData | null;
   user: AuthenticatedUser;

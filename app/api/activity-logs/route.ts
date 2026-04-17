@@ -1,5 +1,6 @@
 import { canManagePatientData, requirePatientScope } from "@/lib/auth/dal";
 import { recordActivityLog } from "@/lib/db/medic-data";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import type { ActivityCompletionStatus } from "@/lib/medic-types";
 
 export const runtime = "nodejs";
@@ -36,6 +37,8 @@ export async function POST(request: Request) {
       patientUserId: scope.patientUserId,
       recordedByUserId: scope.user.userId,
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       ok: true,

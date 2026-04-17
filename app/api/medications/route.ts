@@ -3,6 +3,7 @@ import {
   createMedicationWithSchedule,
   listMedicationsForPatient,
 } from "@/lib/db/medic-data";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import { getOptionalString, getRequiredString, getStringArray } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -56,6 +57,8 @@ export async function POST(request: Request) {
       patientUserId: scope.patientUserId,
       timesOfDay: getStringArray(body.timesOfDay),
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       medicationId,

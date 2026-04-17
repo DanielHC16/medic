@@ -1,6 +1,7 @@
 import { canManagePatientData, requirePatientScope } from "@/lib/auth/dal";
 import { pushMedicationSyncOperations } from "@/lib/db/medic-data";
 import type { SyncPushOperation } from "@/lib/medic-types";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +31,8 @@ export async function POST(request: Request) {
       operations: Array.isArray(body.operations) ? body.operations : [],
       patientUserId: scope.patientUserId,
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       ok: true,

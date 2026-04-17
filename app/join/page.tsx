@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Home, Activity, UserPlus, Heart, User } from "lucide-react";
+import { type LucideIcon, Home, Activity, UserPlus, Heart, User } from "lucide-react";
 
 import { JoinPatientPanel } from "@/components/care-circle-manager";
-import { getCurrentUser } from "@/lib/auth/dal";
+import { getCurrentUser, getProfileRouteForRole } from "@/lib/auth/dal";
 
 type JoinPageProps = {
   searchParams: Promise<{
@@ -24,6 +24,9 @@ export default async function JoinPage({ searchParams }: JoinPageProps) {
   if (user.role === "patient") {
     redirect("/patient/care-circle");
   }
+
+  const activityHref =
+    user.role === "caregiver" ? "/caregiver/monitoring" : "/family/updates";
 
   return (
     <div className="min-h-screen bg-[#Eef1f4] pb-32 font-sans">
@@ -49,7 +52,7 @@ export default async function JoinPage({ searchParams }: JoinPageProps) {
         
         {/* Monitoring */}
         <NavIcon 
-          href="/caregiver/monitoring" 
+          href={activityHref}
           icon={Activity} 
           isActive={false} 
         />
@@ -70,7 +73,7 @@ export default async function JoinPage({ searchParams }: JoinPageProps) {
 
         {/* Profile */}
         <NavIcon 
-          href={`/${user.role}/profile`} 
+          href={getProfileRouteForRole(user.role)}
           icon={User} 
           isActive={false} 
         />
@@ -82,7 +85,15 @@ export default async function JoinPage({ searchParams }: JoinPageProps) {
 /**
  * Shared NavIcon Component
  */
-function NavIcon({ href, icon: Icon, isActive }: { href: string; icon: any; isActive: boolean }) {
+function NavIcon({
+  href,
+  icon: Icon,
+  isActive,
+}: {
+  href: string;
+  icon: LucideIcon;
+  isActive: boolean;
+}) {
   return (
     <Link
       href={href}

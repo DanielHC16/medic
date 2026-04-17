@@ -4,6 +4,7 @@ import type {
   PreferredContactMethod,
   TimeFormatPreference,
 } from "@/lib/medic-types";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import { getBooleanValue } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -30,6 +31,8 @@ export async function PATCH(request: Request) {
       timeFormat: getTimeFormat(body.timeFormat),
       userId: user.userId,
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       ok: true,

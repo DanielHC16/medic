@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Home, Activity, UserPlus, Heart, User } from "lucide-react";
+import { type LucideIcon, Home, Activity, UserPlus, Heart, User } from "lucide-react";
 
 import { CareAccessStatusPanel } from "@/components/care-access-status-panel";
 import { MedicationManager } from "@/components/medication-manager";
@@ -26,20 +26,17 @@ export default async function CaregiverDashboardPage({
     return null;
   }
 
-  // Define active route
-  const currentPath = "/caregiver/dashboard";
-
   return (
     <div className="min-h-screen bg-[#Eef1f4] pb-32 font-sans">
       <main className="px-6 pt-10">
         {/* --- PATIENT SWITCHER --- */}
-        {dashboard.linkedPatients.length > 1 ? (
+        {dashboard.activeLinkedPatients.length > 1 ? (
           <section className="mb-6 rounded-[2rem] border border-black/5 bg-white/90 p-6 shadow-sm">
             <h2 className="text-xl font-semibold tracking-tight text-gray-900">
               Patient switcher
             </h2>
             <div className="mt-4 flex flex-wrap gap-3">
-              {dashboard.linkedPatients.map((patient) => (
+              {dashboard.activeLinkedPatients.map((patient) => (
                 <Link
                   key={patient.relationshipId}
                   href={`/caregiver/dashboard?patientId=${patient.patientUserId}`}
@@ -90,7 +87,7 @@ export default async function CaregiverDashboardPage({
         <NavIcon 
           href="/caregiver/dashboard" 
           icon={Home} 
-          isActive={currentPath === "/caregiver/dashboard"} 
+          isActive 
         />
         
         <NavIcon 
@@ -121,7 +118,15 @@ export default async function CaregiverDashboardPage({
   );
 }
 
-function NavIcon({ href, icon: Icon, isActive }: { href: string; icon: any; isActive: boolean }) {
+function NavIcon({
+  href,
+  icon: Icon,
+  isActive,
+}: {
+  href: string;
+  icon: LucideIcon;
+  isActive: boolean;
+}) {
   return (
     <Link
       href={href}

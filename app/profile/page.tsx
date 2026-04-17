@@ -1,40 +1,24 @@
 import Link from "next/link";
-import { AppShell } from "@/components/app-shell";
 import { ProfilePageContent } from "@/components/profile-page-content";
-import { requireCurrentUser } from "@/lib/auth/dal";
-import {
-  listLinkedPatientsForMember,
-  listPatientConnections,
-} from "@/lib/db/medic-data";
+import { getSettingsRouteForRole, requireRole } from "@/lib/auth/dal";
+import { listPatientConnections } from "@/lib/db/medic-data";
 
 export default async function ProfilePage() {
-  const user = await requireCurrentUser();
-  const records =
-    user.role === "patient"
-      ? await listPatientConnections(user.userId)
-      : await listLinkedPatientsForMember(user.userId);
+  const user = await requireRole("patient");
+  const records = await listPatientConnections(user.userId);
 
-  const shortcuts =
-    user.role === "patient"
-      ? [
-          { href: "/patient/health-info", label: "Health Info" },
-          { href: "/patient/alerts", label: "Alerts" },
-        ]
-      : user.role === "caregiver"
-        ? [
-            { href: "/caregiver/monitoring", label: "Monitoring" },
-            { href: "/join", label: "Join a patient" },
-          ]
-        : [
-            { href: "/family/updates", label: "Updates" },
-            { href: "/join", label: "Join a patient" },
-          ];
-
-  // Logic for the mobile-only "Options" buttons as seen in the screenshot
   const mobileOptions = [
-    { label: "QR / Code", icon: <QrCodeIcon className="w-6 h-6" />, href: "#" },
-    { label: "Medication", icon: <PillIcon className="w-6 h-6" />, href: "/patient/medication" },
-    { label: "Wellness", icon: <WellnessIcon className="w-6 h-6" />, href: "/patient/wellness" },
+    {
+      label: "QR / Code",
+      icon: <QrCodeIcon className="w-6 h-6" />,
+      href: "/patient/care-circle",
+    },
+    {
+      label: "Medication",
+      icon: <PillIcon className="w-6 h-6" />,
+      href: "/patient/medications",
+    },
+    { label: "Wellness", icon: <WellnessIcon className="w-6 h-6" />, href: "/wellness" },
   ];
 
   return (
@@ -46,8 +30,8 @@ export default async function ProfilePage() {
             <div className="w-24 h-24 bg-[#E0E5E2] rounded-full border-4 border-[#4A5D52] flex items-center justify-center overflow-hidden shadow-xl">
               <UserSolidIcon className="w-16 h-16 text-[#334237]" />
             </div>
-            <Link 
-              href={user.role === "patient" ? "/patient/settings" : "/settings"} 
+            <Link
+              href={getSettingsRouteForRole(user.role)}
               className="p-2 text-white/80 hover:text-white transition active:scale-90"
             >
               <SettingsIcon className="w-7 h-7" />
@@ -65,7 +49,10 @@ export default async function ProfilePage() {
           <ProfilePageContent
             heading="Name:"
             records={records}
-            shortcuts={shortcuts}
+            shortcuts={[
+              { href: "/patient/health-info", label: "Health Info" },
+              { href: "/patient/alerts", label: "Alerts" },
+            ]}
             user={user}
           />
         </div>
@@ -107,11 +94,11 @@ export default async function ProfilePage() {
 }
 
 // Icon Components needed for the new UI
-function SettingsIcon(props: any) { return <svg fill="currentColor" viewBox="0 0 24 24" {...props}><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" /></svg>; }
-function QrCodeIcon(props: any) { return <svg fill="currentColor" viewBox="0 0 24 24" {...props}><path d="M3 3h6v6H3V3zm2 2v2h2V5H5zm8-2h6v6h-6V3zm2 2v2h2V5h-2zM3 13h6v6H3v-6zm2 2v2h2v-2H5zm13-2h-3v2h3v-2zm-3 4h3v2h-3v-2zm-2-6h2v2h-2v-2zm-2 2h2v2h-2v-2zm-2 2h2v2h-2v-2zm2 2h2v2h-2v-2z" /></svg>; }
-function PillIcon(props: any) { return <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" {...props}><path d="M7.4 16.6l9.2-9.2a3.5 3.5 0 014.9 4.9l-9.2 9.2a3.5 3.5 0 01-4.9-4.9zM11 13l4-4" /></svg>; }
-function WellnessIcon(props: any) { return <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" {...props}><circle cx="12" cy="7" r="2"/><path d="M7 13.5l3-1.5h4l3 1.5M10 12l-1 7M14 12l1 7"/></svg>; }
-function UserSolidIcon(props: any) { return <svg fill="currentColor" viewBox="0 0 24 24" {...props}><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" /></svg>; }
-function HomeIcon(props: any) { return <svg fill="currentColor" viewBox="0 0 24 24" {...props}><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" /></svg>; }
-function ClockIcon(props: any) { return <svg fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" {...props}><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>; }
-function HeartIcon(props: any) { return <svg fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" {...props}><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>; }
+function SettingsIcon(props: React.SVGProps<SVGSVGElement>) { return <svg fill="currentColor" viewBox="0 0 24 24" {...props}><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" /></svg>; }
+function QrCodeIcon(props: React.SVGProps<SVGSVGElement>) { return <svg fill="currentColor" viewBox="0 0 24 24" {...props}><path d="M3 3h6v6H3V3zm2 2v2h2V5H5zm8-2h6v6h-6V3zm2 2v2h2V5h-2zM3 13h6v6H3v-6zm2 2v2h2v-2H5zm13-2h-3v2h3v-2zm-3 4h3v2h-3v-2zm-2-6h2v2h-2v-2zm-2 2h2v2h-2v-2zm-2 2h2v2h-2v-2zm2 2h2v2h-2v-2z" /></svg>; }
+function PillIcon(props: React.SVGProps<SVGSVGElement>) { return <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" {...props}><path d="M7.4 16.6l9.2-9.2a3.5 3.5 0 014.9 4.9l-9.2 9.2a3.5 3.5 0 01-4.9-4.9zM11 13l4-4" /></svg>; }
+function WellnessIcon(props: React.SVGProps<SVGSVGElement>) { return <svg fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" {...props}><circle cx="12" cy="7" r="2"/><path d="M7 13.5l3-1.5h4l3 1.5M10 12l-1 7M14 12l1 7"/></svg>; }
+function UserSolidIcon(props: React.SVGProps<SVGSVGElement>) { return <svg fill="currentColor" viewBox="0 0 24 24" {...props}><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" /></svg>; }
+function HomeIcon(props: React.SVGProps<SVGSVGElement>) { return <svg fill="currentColor" viewBox="0 0 24 24" {...props}><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" /></svg>; }
+function ClockIcon(props: React.SVGProps<SVGSVGElement>) { return <svg fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" {...props}><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>; }
+function HeartIcon(props: React.SVGProps<SVGSVGElement>) { return <svg fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" {...props}><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>; }

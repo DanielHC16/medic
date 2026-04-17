@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { Home, BellRing, UserPlus, Heart, UserCircle } from "lucide-react";
+import {
+  type LucideIcon,
+  Home,
+  BellRing,
+  UserPlus,
+  Heart,
+  UserCircle,
+} from "lucide-react";
 
 import { CareAccessStatusPanel } from "@/components/care-access-status-panel";
 import { formatDateTime } from "@/lib/display";
@@ -44,20 +51,16 @@ export default async function FamilyUpdatesPage({
         ])
       : [null, null, [], []];
 
-  // Define active route
-  const currentPath = "/family/updates";
-
   return (
     <div className="min-h-screen bg-[#Eef1f4] pb-32 font-sans">
       <main className="px-6 pt-10">
-        {/* --- PATIENT SWITCHER --- */}
-        {dashboard.linkedPatients.length > 1 ? (
+        {dashboard.activeLinkedPatients.length > 1 ? (
           <section className="mb-6 rounded-[2rem] border border-black/5 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-semibold tracking-tight text-gray-900">
               Patient switcher
             </h2>
             <div className="mt-4 flex flex-wrap gap-3">
-              {dashboard.linkedPatients.map((patient) => (
+              {dashboard.activeLinkedPatients.map((patient) => (
                 <Link
                   key={patient.relationshipId}
                   href={`/family/updates?patientId=${patient.patientUserId}`}
@@ -116,7 +119,8 @@ export default async function FamilyUpdatesPage({
                           {item.medicationName}
                         </p>
                         <p className="mt-2 text-sm text-gray-600 capitalize">
-                          {item.status.replace(/_/g, " ")} • {formatDateTime(item.takenAt || item.createdAt)}
+                          {item.status.replace(/_/g, " ")} /{" "}
+                          {formatDateTime(item.takenAt || item.createdAt)}
                         </p>
                       </article>
                     ))
@@ -143,7 +147,7 @@ export default async function FamilyUpdatesPage({
                           {item.activityTitle}
                         </p>
                         <p className="mt-2 text-sm text-gray-600 capitalize">
-                          {item.completionStatus.replace(/_/g, " ")} •{" "}
+                          {item.completionStatus.replace(/_/g, " ")} /{" "}
                           {formatDateTime(item.completedAt || item.createdAt)}
                         </p>
                       </article>
@@ -176,7 +180,7 @@ export default async function FamilyUpdatesPage({
                           {formatDateTime(item.appointmentAt)}
                         </p>
                         <p className="mt-1 text-xs text-gray-500">
-                          {item.providerName || "Provider pending"} •{" "}
+                          {item.providerName || "Provider pending"} /{" "}
                           {item.location || "Location pending"}
                         </p>
                       </article>
@@ -213,55 +217,38 @@ export default async function FamilyUpdatesPage({
         )}
       </main>
 
-      {/* --- BOTTOM NAVIGATION BAR --- */}
       <nav className="fixed bottom-0 left-0 right-0 z-[100] flex items-center justify-around rounded-t-[2.5rem] bg-white px-6 py-6 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t border-gray-100">
-        <NavIcon 
-          href="/family/dashboard" 
-          icon={Home} 
-          isActive={false} 
-        />
-        
-        <NavIcon 
-          href="/family/updates" 
-          icon={BellRing} 
-          isActive={currentPath === "/family/updates"} 
-        />
-
-        <NavIcon 
-          href="/join" 
-          icon={UserPlus} 
-          isActive={false} 
-        />
-
-        <NavIcon 
-          href="/wellness" 
-          icon={Heart} 
-          isActive={false} 
-        />
-
-        <NavIcon 
-          href="/family/profile" 
-          icon={UserCircle} 
-          isActive={false} 
-        />
+        <NavIcon href="/family/dashboard" icon={Home} isActive={false} />
+        <NavIcon href="/family/updates" icon={BellRing} isActive />
+        <NavIcon href="/join" icon={UserPlus} isActive={false} />
+        <NavIcon href="/wellness" icon={Heart} isActive={false} />
+        <NavIcon href="/family/profile" icon={UserCircle} isActive={false} />
       </nav>
     </div>
   );
 }
 
-function NavIcon({ href, icon: Icon, isActive }: { href: string; icon: any; isActive: boolean }) {
+function NavIcon({
+  href,
+  icon: Icon,
+  isActive,
+}: {
+  href: string;
+  icon: LucideIcon;
+  isActive: boolean;
+}) {
   return (
     <Link
       href={href}
       className={`relative flex h-14 w-14 items-center justify-center transition-all duration-300 ${
-        isActive 
-          ? "rounded-full bg-[#5C8B6B] shadow-lg scale-110" 
+        isActive
+          ? "rounded-full bg-[#5C8B6B] shadow-lg scale-110"
           : "rounded-full bg-transparent hover:bg-gray-50"
       }`}
     >
-      <Icon 
+      <Icon
         size={24}
-        color={isActive ? "#FFFFFF" : "#5C8B6B"} 
+        color={isActive ? "#FFFFFF" : "#5C8B6B"}
         strokeWidth={isActive ? 2.5 : 2}
         className="block"
       />

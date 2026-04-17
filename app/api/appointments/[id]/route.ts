@@ -3,6 +3,7 @@ import {
   cancelAppointment,
   updateAppointment,
 } from "@/lib/db/medic-data";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import { getOptionalString, getRequiredString } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -39,6 +40,8 @@ export async function PATCH(
       status: getRequiredString(body.status, "Appointment status"),
       title: getRequiredString(body.title, "Title"),
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       ok: true,
@@ -78,6 +81,8 @@ export async function DELETE(
       appointmentId: id,
       patientUserId: scope.patientUserId,
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       ok: true,

@@ -1,5 +1,6 @@
 import { requireCurrentUser } from "@/lib/auth/dal";
 import { updateUserAccount } from "@/lib/db/medic-data";
+import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import { getOptionalString, getRequiredString } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -17,6 +18,8 @@ export async function PATCH(request: Request) {
       phone: getOptionalString(body.phone),
       userId: user.userId,
     });
+
+    revalidateMedicAppPaths();
 
     return Response.json({
       ok: true,
