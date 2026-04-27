@@ -1,14 +1,14 @@
 import { canManagePatientData, requirePatientScope } from "@/lib/auth/dal";
 import { recordActivityLog } from "@/lib/db/medic-data";
 import { revalidateMedicAppPaths } from "@/lib/revalidation";
-import type { ActivityCompletionStatus } from "@/lib/medic-types";
+import {
+  getActivityCompletionStatus,
+  getEntityId,
+  getOptionalString,
+} from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function getCompletionStatus(value: unknown): ActivityCompletionStatus {
-  return value === "done" || value === "missed" ? value : "planned";
-}
 
 export async function POST(request: Request) {
   try {
@@ -16,9 +16,11 @@ export async function POST(request: Request) {
       activityPlanId?: string;
       notes?: string | null;
       patientUserId?: string | null;
-      status?: ActivityCompletionStatus;
+      status?: unknown;
     };
-    const scope = await requirePatientScope(body.patientUserId);
+    const scope = await requirePatientScope(
+      getEntityId(body.patientUserId, "Patient", { required: false }),
+    );
 
     if (!scope.patientUserId || !canManagePatientData(scope.user.role)) {
       return Response.json(
@@ -31,9 +33,9 @@ export async function POST(request: Request) {
     }
 
     await recordActivityLog({
-      activityPlanId: body.activityPlanId ?? "",
-      completionStatus: getCompletionStatus(body.status),
-      notes: body.notes ?? null,
+      activityPlanId: getEntityId(body.activityPlanId, "Routine"),
+      completionStatus: getActivityCompletionStatus(body.status),
+      notes: getOptionalString(body.notes, "Notes", 1000),
       patientUserId: scope.patientUserId,
       recordedByUserId: scope.user.userId,
     });

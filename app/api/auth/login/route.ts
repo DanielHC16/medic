@@ -1,6 +1,11 @@
 import { getDefaultRouteForRole } from "@/lib/auth/dal";
-import { authenticateUser } from "@/lib/db/medic-data";
+import { authenticateUserWithNeonAuth } from "@/lib/auth/neon-credentials";
 import { createUserSession } from "@/lib/security/session";
+import {
+  getLoginIdentifier,
+  getLoginPassword,
+  getOptionalRedirectPath,
+} from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,16 +17,16 @@ export async function POST(request: Request) {
       password?: string;
       redirectTo?: string;
     };
-    const user = await authenticateUser({
-      identifier: body.identifier ?? "",
-      password: body.password ?? "",
+    const user = await authenticateUserWithNeonAuth({
+      identifier: getLoginIdentifier(body.identifier),
+      password: getLoginPassword(body.password),
     });
 
     await createUserSession(user);
 
     return Response.json({
       ok: true,
-      redirectTo: body.redirectTo || getDefaultRouteForRole(user),
+      redirectTo: getOptionalRedirectPath(body.redirectTo) || getDefaultRouteForRole(user),
       user,
     });
   } catch (error) {

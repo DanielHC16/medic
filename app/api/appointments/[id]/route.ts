@@ -5,9 +5,12 @@ import {
 } from "@/lib/db/medic-data";
 import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import {
+  getAppointmentStatus,
+  getDateTime,
+  getEntityId,
   getOptionalImageDataUrl,
   getOptionalString,
-  getRequiredString,
+  getSafeText,
 } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -21,7 +24,7 @@ export async function PATCH(
     const body = (await request.json()) as Record<string, unknown>;
     const { id } = await context.params;
     const scope = await requirePatientScope(
-      typeof body.patientUserId === "string" ? body.patientUserId : null,
+      getEntityId(body.patientUserId, "Patient", { required: false }),
     );
 
     if (!scope.patientUserId || !canManagePatientData(scope.user.role)) {
@@ -35,15 +38,15 @@ export async function PATCH(
     }
 
     await updateAppointment({
-      appointmentAt: getRequiredString(body.appointmentAt, "Appointment time"),
-      appointmentId: id,
+      appointmentAt: getDateTime(body.appointmentAt, "Appointment time"),
+      appointmentId: getEntityId(id, "Appointment"),
       imageDataUrl: getOptionalImageDataUrl(body.imageDataUrl, "Appointment image"),
-      location: getOptionalString(body.location),
-      notes: getOptionalString(body.notes),
+      location: getOptionalString(body.location, "Location", 200),
+      notes: getOptionalString(body.notes, "Notes", 1000),
       patientUserId: scope.patientUserId,
-      providerName: getOptionalString(body.providerName),
-      status: getRequiredString(body.status, "Appointment status"),
-      title: getRequiredString(body.title, "Title"),
+      providerName: getOptionalString(body.providerName, "Provider name", 120),
+      status: getAppointmentStatus(body.status),
+      title: getSafeText(body.title, "Title", { maxLength: 120, minLength: 2 }),
     });
 
     revalidateMedicAppPaths();
@@ -70,7 +73,9 @@ export async function DELETE(
   try {
     const { id } = await context.params;
     const { searchParams } = new URL(request.url);
-    const scope = await requirePatientScope(searchParams.get("patientId"));
+    const scope = await requirePatientScope(
+      getEntityId(searchParams.get("patientId"), "Patient", { required: false }),
+    );
 
     if (!scope.patientUserId || !canManagePatientData(scope.user.role)) {
       return Response.json(
@@ -83,7 +88,7 @@ export async function DELETE(
     }
 
     await cancelAppointment({
-      appointmentId: id,
+      appointmentId: getEntityId(id, "Appointment"),
       patientUserId: scope.patientUserId,
     });
 

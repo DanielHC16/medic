@@ -39,7 +39,43 @@ export function getGeminiModel() {
   return process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
 }
 
+export function getNeonAuthBaseUrl() {
+  const baseUrl = normalizeEnvironmentValue(
+    process.env.NEON_AUTH_BASE_URL ?? process.env.VITE_NEON_AUTH_URL,
+  );
+
+  if (!baseUrl) {
+    throw new Error(
+      "Missing Neon Auth URL. Expected NEON_AUTH_BASE_URL in the environment.",
+    );
+  }
+
+  return baseUrl;
+}
+
+export function getNeonAuthCookieSecret() {
+  const secret = normalizeEnvironmentValue(
+    process.env.NEON_AUTH_COOKIE_SECRET ?? process.env.SESSION_SECRET,
+  );
+
+  if (secret.length >= 32) {
+    return secret;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "Missing Neon Auth cookie secret. Set NEON_AUTH_COOKIE_SECRET or SESSION_SECRET to at least 32 characters.",
+    );
+  }
+
+  return "medic-development-neon-auth-cookie-secret-32-chars";
+}
+
 export function getEnvironmentSummary() {
+  const neonAuthCookieSecret = normalizeEnvironmentValue(
+    process.env.NEON_AUTH_COOKIE_SECRET ?? process.env.SESSION_SECRET,
+  );
+
   return {
     hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
     hasGeminiApiKey: Boolean(process.env.API_KEY ?? process.env.GEMINI_API_KEY),
@@ -47,5 +83,8 @@ export function getEnvironmentSummary() {
     hasPostgresUrl: Boolean(process.env.POSTGRES_URL),
     hasNeonProjectId: Boolean(process.env.NEON_PROJECT_ID),
     hasNeonAuthBaseUrl: Boolean(process.env.NEON_AUTH_BASE_URL),
+    hasNeonAuthCookieSecret: neonAuthCookieSecret.length >= 32,
+    hasDedicatedNeonAuthCookieSecret: Boolean(process.env.NEON_AUTH_COOKIE_SECRET),
+    usesDevelopmentNeonAuthCookieSecret: neonAuthCookieSecret.length < 32,
   };
 }

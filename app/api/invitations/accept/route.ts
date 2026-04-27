@@ -1,6 +1,7 @@
 import { getDefaultRouteForRole, requireCurrentUser } from "@/lib/auth/dal";
 import { acceptInvitation } from "@/lib/db/medic-data";
 import { revalidateMedicAppPaths } from "@/lib/revalidation";
+import { getInviteCode } from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
       code?: string;
     };
     const result = await acceptInvitation({
-      code: body.code ?? "",
+      code: getInviteCode(body.code),
       userId: user.userId,
     });
 

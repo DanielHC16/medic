@@ -4,6 +4,22 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import {
+  getEmail,
+  getInviteCode,
+  getPassword,
+  getPersonName,
+  getPhoneNumber,
+  getSeniorDateOfBirth,
+} from '@/lib/validation';
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{
+    outcome: 'accepted' | 'dismissed';
+    platform: string;
+  }>;
+};
 
 // --- Icons used for the PWA Popup ---
 function DownloadIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -60,16 +76,18 @@ export function SignUpClient() {
   const [error, setError] = useState<string | null>(null);
 
   // 4. PWA Install Prompt State
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallPopup, setShowInstallPopup] = useState(false);
   const [finalRedirectUrl, setFinalRedirectUrl] = useState<string | null>(null);
+
+  const seniorCutoff = getSeniorBirthDateCutoff();
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
       // Prevent Chrome 67 and earlier from automatically showing the prompt
       e.preventDefault();
       // Stash the event so it can be triggered later.
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
       // We do NOT set showInstallPopup(true) here because we want to wait until registration completes
     };
 
@@ -189,19 +207,28 @@ export function SignUpClient() {
       return;
     }
     // Step 2: Basic Info
-    if (
-      step === 2 &&
-      (!formData.firstName ||
-        !formData.lastName ||
-        (formData.role === 'patient' && !formData.birthday))
-    ) {
-      setError("Please fill out all fields to continue.");
-      return;
+    if (step === 2) {
+      try {
+        getPersonName(formData.firstName, 'First name');
+        getPersonName(formData.lastName, 'Last name');
+
+        if (formData.role === 'patient') {
+          getSeniorDateOfBirth(formData.birthday);
+        }
+      } catch (validationError) {
+        setError(validationError instanceof Error ? validationError.message : 'Please enter valid profile details.');
+        return;
+      }
     }
     // Step 3: Contact Info
-    if (step === 3 && (!formData.email || !formData.phone)) {
-      setError("Please provide both email and phone number.");
-      return;
+    if (step === 3) {
+      try {
+        getEmail(formData.email);
+        getPhoneNumber(formData.phone);
+      } catch (validationError) {
+        setError(validationError instanceof Error ? validationError.message : 'Please enter valid contact details.');
+        return;
+      }
     }
     // Step 4: Passwords
     if (step === 4) {
@@ -209,8 +236,10 @@ export function SignUpClient() {
         setError("Passwords do not match.");
         return;
       }
-      if (formData.password.length < 6) {
-        setError("Password must be at least 6 characters.");
+      try {
+        getPassword(formData.password);
+      } catch (validationError) {
+        setError(validationError instanceof Error ? validationError.message : 'Please enter a stronger password.');
         return;
       }
       
@@ -228,6 +257,15 @@ export function SignUpClient() {
       if (step === 5 && formData.assistance === 'limited_mobility' && !formData.assistanceDetails) {
         setError("Please specify your mobility limitations.");
         return;
+      }
+
+      if (step === 6 && formData.inviteCode) {
+        try {
+          getInviteCode(formData.inviteCode);
+        } catch (validationError) {
+          setError(validationError instanceof Error ? validationError.message : 'Please enter a valid invite code.');
+          return;
+        }
       }
 
       const redirectTo = await submitForm();
@@ -332,6 +370,9 @@ export function SignUpClient() {
                   placeholder="First Name"
                   value={formData.firstName}
                   onChange={handleChange}
+                  autoComplete="given-name"
+                  minLength={2}
+                  maxLength={80}
                   required
                   className="w-full h-[60px] px-6 text-base bg-white text-[#3F6F50] border border-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] placeholder:text-[#CBD7D0] focus:ring-2 focus:ring-[#3F6F50] focus:border-[#3F6F50] transition"
                 />
@@ -344,6 +385,9 @@ export function SignUpClient() {
                   placeholder="Last Name"
                   value={formData.lastName}
                   onChange={handleChange}
+                  autoComplete="family-name"
+                  minLength={2}
+                  maxLength={80}
                   required
                   className="w-full h-[60px] px-6 text-base bg-white text-[#3F6F50] border border-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] placeholder:text-[#CBD7D0] focus:ring-2 focus:ring-[#3F6F50] focus:border-[#3F6F50] transition"
                 />
@@ -356,6 +400,8 @@ export function SignUpClient() {
                     name="birthday"
                     value={formData.birthday}
                     onChange={handleChange}
+                    max={seniorCutoff}
+                    min="1900-01-01"
                     required
                     className="w-full h-[60px] px-6 text-base bg-white text-[#3F6F50] border border-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] placeholder:text-[#CBD7D0] focus:ring-2 focus:ring-[#3F6F50] focus:border-[#3F6F50] transition"
                   />
@@ -375,6 +421,8 @@ export function SignUpClient() {
                   placeholder="Email Address"
                   value={formData.email}
                   onChange={handleChange}
+                  autoComplete="email"
+                  maxLength={254}
                   required
                   className="w-full h-[60px] px-6 text-base bg-white text-[#3F6F50] border border-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] placeholder:text-[#CBD7D0] focus:ring-2 focus:ring-[#3F6F50] focus:border-[#3F6F50] transition"
                 />
@@ -387,6 +435,10 @@ export function SignUpClient() {
                   placeholder="Contact Number"
                   value={formData.phone}
                   onChange={handleChange}
+                  autoComplete="tel"
+                  inputMode="tel"
+                  minLength={10}
+                  maxLength={20}
                   required
                   className="w-full h-[60px] px-6 text-base bg-white text-[#3F6F50] border border-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] placeholder:text-[#CBD7D0] focus:ring-2 focus:ring-[#3F6F50] focus:border-[#3F6F50] transition"
                 />
@@ -406,6 +458,9 @@ export function SignUpClient() {
                     placeholder="Password"
                     value={formData.password}
                     onChange={handleChange}
+                    autoComplete="new-password"
+                    minLength={8}
+                    maxLength={128}
                     required
                     className="w-full h-[60px] pl-6 pr-24 text-base bg-white text-[#3F6F50] border border-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] placeholder:text-[#CBD7D0] focus:ring-2 focus:ring-[#3F6F50] focus:border-[#3F6F50] transition"
                   />
@@ -428,6 +483,9 @@ export function SignUpClient() {
                     placeholder="Password"
                     value={formData.confirmPassword}
                     onChange={handleChange}
+                    autoComplete="new-password"
+                    minLength={8}
+                    maxLength={128}
                     required
                     className="w-full h-[60px] pl-6 pr-24 text-base bg-white text-[#3F6F50] border border-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] placeholder:text-[#CBD7D0] focus:ring-2 focus:ring-[#3F6F50] focus:border-[#3F6F50] transition"
                   />
@@ -465,6 +523,8 @@ export function SignUpClient() {
                       placeholder="Indicate here"
                       value={formData.assistanceDetails}
                       onChange={handleChange}
+                      maxLength={1000}
+                      required
                       className="ml-10 mt-1 h-10 px-4 text-sm bg-white text-[#3F6F50] border border-b-[#4A5D52] border-x-transparent border-t-transparent outline-none bg-transparent placeholder:text-[#4A5D52]/50 transition w-[85%]"
                     />
                   )}
@@ -493,6 +553,9 @@ export function SignUpClient() {
                     placeholder="CARE123"
                     value={formData.inviteCode}
                     onChange={handleChange}
+                    minLength={6}
+                    maxLength={6}
+                    pattern="[A-HJ-NP-Z2-9]{6}"
                     className="w-full h-[60px] px-6 text-base uppercase bg-white text-[#3F6F50] border border-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] placeholder:text-[#CBD7D0] focus:ring-2 focus:ring-[#3F6F50] focus:border-[#3F6F50] transition"
                   />
                 </div>
@@ -657,4 +720,10 @@ function EyeIcon(props: React.SVGProps<SVGSVGElement>) {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
     </svg>
   );
+}
+
+function getSeniorBirthDateCutoff() {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - 51);
+  return date.toISOString().slice(0, 10);
 }

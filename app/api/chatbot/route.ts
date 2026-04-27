@@ -145,18 +145,30 @@ async function getChatContext(patientUserId: string) {
 
 function sanitizeMessages(value: unknown) {
   if (!Array.isArray(value)) {
-    return [];
+    throw new Error("Messages must be a valid list.");
+  }
+
+  if (value.length > 12) {
+    throw new Error("Messages must include 12 entries or fewer.");
   }
 
   const sanitized = value
-    .map((message) => {
+    .map((message, index) => {
       if (!message || typeof message !== "object") {
-        return null;
+        throw new Error(`Message ${index + 1} must be valid.`);
       }
 
-      const role =
-        (message as { role?: unknown }).role === "assistant" ? "assistant" : "user";
-      const content = getOptionalString((message as { content?: unknown }).content);
+      const rawRole = (message as { role?: unknown }).role;
+
+      if (rawRole !== "assistant" && rawRole !== "user") {
+        throw new Error(`Message ${index + 1} role must be valid.`);
+      }
+
+      const content = getOptionalString(
+        (message as { content?: unknown }).content,
+        `Message ${index + 1}`,
+        1200,
+      );
 
       if (!content) {
         return null;
@@ -164,7 +176,7 @@ function sanitizeMessages(value: unknown) {
 
       return {
         content: content.slice(0, 1200),
-        role,
+        role: rawRole,
       } satisfies PatientChatMessage;
     })
     .filter((message): message is PatientChatMessage => message !== null);

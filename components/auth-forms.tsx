@@ -70,7 +70,9 @@ export function SignInForm(props: { redirectTo?: string | null }) {
           <input
             name="identifier"
             required
+            autoComplete="username"
             className="medic-field"
+            maxLength={254}
             placeholder="patient.demo@medic.local"
           />
         </label>
@@ -83,7 +85,9 @@ export function SignInForm(props: { redirectTo?: string | null }) {
             name="password"
             required
             type="password"
+            autoComplete="current-password"
             className="medic-field"
+            maxLength={128}
             placeholder="DemoPass123!"
           />
         </label>
@@ -180,7 +184,10 @@ export function SignUpForm(props: { defaultInviteCode?: string | null }) {
           <input
             name="firstName"
             required
+            autoComplete="given-name"
             className="medic-field"
+            minLength={2}
+            maxLength={80}
           />
         </label>
 
@@ -191,7 +198,10 @@ export function SignUpForm(props: { defaultInviteCode?: string | null }) {
           <input
             name="lastName"
             required
+            autoComplete="family-name"
             className="medic-field"
+            minLength={2}
+            maxLength={80}
           />
         </label>
 
@@ -203,7 +213,9 @@ export function SignUpForm(props: { defaultInviteCode?: string | null }) {
             name="email"
             required
             type="email"
+            autoComplete="email"
             className="medic-field"
+            maxLength={254}
           />
         </label>
 
@@ -214,6 +226,10 @@ export function SignUpForm(props: { defaultInviteCode?: string | null }) {
           <input
             name="phone"
             className="medic-field"
+            autoComplete="tel"
+            inputMode="tel"
+            minLength={10}
+            maxLength={20}
             placeholder="09170000004"
           />
         </label>
@@ -240,7 +256,10 @@ export function SignUpForm(props: { defaultInviteCode?: string | null }) {
             name="password"
             required
             type="password"
+            autoComplete="new-password"
             className="medic-field"
+            minLength={8}
+            maxLength={128}
           />
         </label>
       </div>
@@ -255,6 +274,8 @@ export function SignUpForm(props: { defaultInviteCode?: string | null }) {
               name="dateOfBirth"
               type="date"
               className="medic-field"
+              min="1900-01-01"
+              required
             />
           </label>
 
@@ -283,6 +304,9 @@ export function SignUpForm(props: { defaultInviteCode?: string | null }) {
               name="inviteCode"
               defaultValue={props.defaultInviteCode ?? ""}
               className="medic-field uppercase"
+              minLength={6}
+              maxLength={6}
+              pattern="[A-HJ-NP-Z2-9]{6}"
               placeholder="CARE123"
             />
           </label>

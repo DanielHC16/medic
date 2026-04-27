@@ -383,7 +383,10 @@ function TextField(props: {
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   label: string;
   listId?: string;
+  max?: number | string;
+  maxLength?: number;
   min?: number | string;
+  minLength?: number;
   onChange: (value: string) => void;
   placeholder?: string;
   required?: boolean;
@@ -398,7 +401,10 @@ function TextField(props: {
         disabled={props.disabled}
         inputMode={props.inputMode}
         list={props.listId}
+        max={props.max}
+        maxLength={props.maxLength}
         min={props.min}
+        minLength={props.minLength}
         onChange={(event) => props.onChange(event.target.value)}
         placeholder={props.placeholder}
         required={props.required}
@@ -440,6 +446,7 @@ function SelectField(props: {
 function TextAreaField(props: {
   disabled?: boolean;
   label: string;
+  maxLength?: number;
   onChange: (value: string) => void;
   placeholder?: string;
   value: string;
@@ -449,6 +456,7 @@ function TextAreaField(props: {
       <span className="text-sm font-medium text-[var(--foreground)]">{props.label}</span>
       <textarea
         disabled={props.disabled}
+        maxLength={props.maxLength}
         onChange={(event) => props.onChange(event.target.value)}
         placeholder={props.placeholder}
         value={props.value}
@@ -644,6 +652,8 @@ function RoutineFormFields(props: {
       <TextField
         disabled={props.pending}
         label="Routine title"
+        minLength={2}
+        maxLength={100}
         onChange={(value) =>
           props.setDraft((current) => ({
             ...current,
@@ -661,6 +671,7 @@ function RoutineFormFields(props: {
             disabled={props.pending}
             label="Category"
             listId={`${props.formIdPrefix}-routine-categories`}
+            maxLength={60}
             onChange={(value) =>
               props.setDraft((current) => ({
                 ...current,
@@ -711,6 +722,7 @@ function RoutineFormFields(props: {
           disabled={props.pending}
           inputMode="numeric"
           label="Target minutes"
+          max={240}
           min={1}
           onChange={(value) =>
             props.setDraft((current) => ({
@@ -773,6 +785,7 @@ function RoutineFormFields(props: {
       <TextAreaField
         disabled={props.pending}
         label="Instructions"
+        maxLength={1000}
         onChange={(value) =>
           props.setDraft((current) => ({
             ...current,
@@ -819,6 +832,8 @@ function AppointmentFormFields(props: {
             }))
           }
           placeholder="Follow-up visit"
+          minLength={2}
+          maxLength={120}
           required
           value={props.draft.title}
         />
@@ -852,6 +867,7 @@ function AppointmentFormFields(props: {
             }))
           }
           placeholder="Dr. Caldera"
+          maxLength={120}
           value={props.draft.providerName}
         />
         <TextField
@@ -864,6 +880,7 @@ function AppointmentFormFields(props: {
             }))
           }
           placeholder="Albuquerque Medical Center"
+          maxLength={200}
           value={props.draft.location}
         />
         <TextField
@@ -916,6 +933,7 @@ function AppointmentFormFields(props: {
       <TextAreaField
         disabled={props.pending}
         label="Notes"
+        maxLength={1000}
         onChange={(value) =>
           props.setDraft((current) => ({
             ...current,

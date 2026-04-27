@@ -4,6 +4,8 @@ import Image from "next/image";
 import { useState } from "react";
 import { User, ChevronLeft } from "lucide-react";
 
+import { getEmail, getPersonName, getPhoneNumber } from "@/lib/validation";
+
 type SavedProfile = {
   email: string;
   firstName: string;
@@ -35,16 +37,27 @@ export function ProfileEditModal({
   const [profileImageDataUrl, setProfileImageDataUrl] = useState<string | null>(
     initialProfileImageDataUrl,
   );
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   async function handleSave() {
-    if (password && password !== confirmPassword) {
-      setMessage("Passwords do not match.");
+    const [firstName, ...lastNameParts] = name.trim().split(/\s+/);
+    const lastName = lastNameParts.join(" ");
+
+    try {
+      getPersonName(firstName, "First name");
+      getPersonName(lastName, "Last name");
+      getEmail(email);
+      getPhoneNumber(phone, "Contact number", { required: false });
+    } catch (validationError) {
+      setMessage(
+        validationError instanceof Error
+          ? validationError.message
+          : "Please enter valid profile details.",
+      );
       return;
     }
+
     setSaving(true);
     setMessage(null);
     try {
@@ -53,11 +66,10 @@ export function ProfileEditModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          firstName: name.split(" ")[0] ?? name,
-          lastName: name.split(" ").slice(1).join(" ") || undefined,
+          firstName,
+          lastName,
           phone: phone || undefined,
           profileImageDataUrl,
-          ...(password ? { password } : {}),
         }),
       });
       const json = res.ok
@@ -155,6 +167,9 @@ export function ProfileEditModal({
             className="w-full px-4 py-3 rounded-[14px] border border-[#2F3E34]/20 bg-[#F6F7F2] text-[13px] outline-none focus:border-[#4A7C59] transition"
             placeholder="Name"
             value={name}
+            minLength={4}
+            maxLength={160}
+            autoComplete="name"
             onChange={(e) => setName(e.target.value)}
           />
         </div>
@@ -166,6 +181,8 @@ export function ProfileEditModal({
             placeholder="Email@email.com"
             type="email"
             value={email}
+            maxLength={254}
+            autoComplete="email"
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
@@ -177,29 +194,11 @@ export function ProfileEditModal({
             placeholder="09123456789"
             type="tel"
             value={phone}
+            minLength={10}
+            maxLength={20}
+            inputMode="tel"
+            autoComplete="tel"
             onChange={(e) => setPhone(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <p className="text-[14px] font-bold mb-1.5">Password:</p>
-          <input
-            className="w-full px-4 py-3 rounded-[14px] border border-[#2F3E34]/20 bg-[#F6F7F2] text-[13px] outline-none focus:border-[#4A7C59] transition"
-            placeholder="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <p className="text-[14px] font-bold mb-1.5">Retype Password:</p>
-          <input
-            className="w-full px-4 py-3 rounded-[14px] border border-[#2F3E34]/20 bg-[#F6F7F2] text-[13px] outline-none focus:border-[#4A7C59] transition"
-            placeholder="Retype Password"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
           />
         </div>
 

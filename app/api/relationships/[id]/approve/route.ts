@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/auth/dal";
 import { approveRelationship } from "@/lib/db/medic-data";
 import { revalidateMedicAppPaths } from "@/lib/revalidation";
+import { getEntityId } from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,18 +10,28 @@ export async function POST(
   _request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const user = await requireRole("patient");
-  const { id } = await context.params;
+  try {
+    const user = await requireRole("patient");
+    const { id } = await context.params;
 
-  await approveRelationship({
-    approverUserId: user.userId,
-    patientUserId: user.userId,
-    relationshipId: id,
-  });
+    await approveRelationship({
+      approverUserId: user.userId,
+      patientUserId: user.userId,
+      relationshipId: getEntityId(id, "Relationship"),
+    });
 
-  revalidateMedicAppPaths();
+    revalidateMedicAppPaths();
 
-  return Response.json({
-    ok: true,
-  });
+    return Response.json({
+      ok: true,
+    });
+  } catch (error) {
+    return Response.json(
+      {
+        message: error instanceof Error ? error.message : "Failed to approve relationship.",
+        ok: false,
+      },
+      { status: 400 },
+    );
+  }
 }

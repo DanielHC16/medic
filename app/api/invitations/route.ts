@@ -10,7 +10,11 @@ import type {
   ShareableInvitation,
 } from "@/lib/medic-types";
 import { revalidateMedicAppPaths } from "@/lib/revalidation";
-import { assertRole } from "@/lib/validation";
+import {
+  assertRole,
+  getInviteApprovalMode,
+  getInviteCode,
+} from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +24,7 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
 
   if (code) {
-    const preview = await getInvitationPreviewByCode(code);
+    const preview = await getInvitationPreviewByCode(getInviteCode(code));
 
     return Response.json({
       ok: true,
@@ -73,7 +77,7 @@ export async function POST(request: Request) {
     }
 
     const invitation = await createInvitation({
-      approvalMode: body.approvalMode ?? "manual",
+      approvalMode: getInviteApprovalMode(body.approvalMode),
       createdByUserId: user.userId,
       memberRole,
       patientUserId: user.userId,

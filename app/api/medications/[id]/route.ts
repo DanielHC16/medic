@@ -5,10 +5,15 @@ import {
 } from "@/lib/db/medic-data";
 import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import {
+  getDosageUnit,
+  getDosageValue,
+  getEntityId,
+  getMedicationFrequency,
   getOptionalImageDataUrl,
   getOptionalString,
-  getRequiredString,
-  getStringArray,
+  getSafeText,
+  getTimeArray,
+  getWeekdayArray,
 } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -22,7 +27,7 @@ export async function PATCH(
     const body = (await request.json()) as Record<string, unknown>;
     const { id } = await context.params;
     const scope = await requirePatientScope(
-      typeof body.patientUserId === "string" ? body.patientUserId : null,
+      getEntityId(body.patientUserId, "Patient", { required: false }),
     );
 
     if (!scope.patientUserId || !canManagePatientData(scope.user.role)) {
@@ -36,17 +41,17 @@ export async function PATCH(
     }
 
     await updateMedicationWithSchedule({
-      daysOfWeek: getStringArray(body.daysOfWeek),
-      dosageUnit: getOptionalString(body.dosageUnit),
-      dosageValue: getRequiredString(body.dosageValue, "Dosage value"),
-      form: getRequiredString(body.form, "Medication form"),
-      frequencyType: getRequiredString(body.frequencyType, "Frequency"),
+      daysOfWeek: getWeekdayArray(body.daysOfWeek),
+      dosageUnit: getDosageUnit(body.dosageUnit),
+      dosageValue: getDosageValue(body.dosageValue),
+      form: getSafeText(body.form, "Medication form", { maxLength: 60 }),
+      frequencyType: getMedicationFrequency(body.frequencyType),
       imageDataUrl: getOptionalImageDataUrl(body.imageDataUrl, "Medication image"),
-      instructions: getOptionalString(body.instructions),
-      medicationId: id,
-      name: getRequiredString(body.name, "Medication name"),
+      instructions: getOptionalString(body.instructions, "Instructions", 1000),
+      medicationId: getEntityId(id, "Medication"),
+      name: getSafeText(body.name, "Medication name", { maxLength: 100, minLength: 2 }),
       patientUserId: scope.patientUserId,
-      timesOfDay: getStringArray(body.timesOfDay),
+      timesOfDay: getTimeArray(body.timesOfDay),
     });
 
     revalidateMedicAppPaths();
@@ -72,7 +77,9 @@ export async function DELETE(
   try {
     const { id } = await context.params;
     const { searchParams } = new URL(request.url);
-    const scope = await requirePatientScope(searchParams.get("patientId"));
+    const scope = await requirePatientScope(
+      getEntityId(searchParams.get("patientId"), "Patient", { required: false }),
+    );
 
     if (!scope.patientUserId || !canManagePatientData(scope.user.role)) {
       return Response.json(
@@ -85,7 +92,7 @@ export async function DELETE(
     }
 
     await archiveMedication({
-      medicationId: id,
+      medicationId: getEntityId(id, "Medication"),
       patientUserId: scope.patientUserId,
     });
 

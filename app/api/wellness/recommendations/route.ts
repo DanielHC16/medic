@@ -6,7 +6,7 @@ import {
   getPatientDashboardData,
   listActivityLogsForPatient,
 } from "@/lib/db/medic-data";
-import { getOptionalString } from "@/lib/validation";
+import { getEntityId, getOptionalString } from "@/lib/validation";
 import { generateWellnessInsight } from "@/lib/wellness-ai";
 import type { WellnessGenerationInput } from "@/lib/wellness-ai-shared";
 
@@ -28,7 +28,9 @@ const insightCache = new Map<
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const scope = await requirePatientScope(searchParams.get("patientId"));
+    const scope = await requirePatientScope(
+      getEntityId(searchParams.get("patientId"), "Patient", { required: false }),
+    );
 
     if (!scope.patientUserId) {
       return Response.json(
@@ -68,7 +70,7 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
     const scope = await requirePatientScope(
-      typeof body.patientUserId === "string" ? body.patientUserId : null,
+      getEntityId(body.patientUserId, "Patient", { required: false }),
     );
 
     if (!scope.patientUserId || !canManagePatientData(scope.user.role)) {
@@ -81,7 +83,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const userPrompt = getOptionalString(body.userPrompt)?.slice(0, 600) ?? null;
+    const userPrompt = getOptionalString(body.userPrompt, "Routine prompt", 600);
     const insight = await generateInsight(scope.patientUserId, {
       requestType: "routine",
       userPrompt,

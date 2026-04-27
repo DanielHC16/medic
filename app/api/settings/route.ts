@@ -1,22 +1,14 @@
 import { requireCurrentUser } from "@/lib/auth/dal";
 import { updateUserPreferences } from "@/lib/db/medic-data";
-import type {
-  PreferredContactMethod,
-  TimeFormatPreference,
-} from "@/lib/medic-types";
 import { revalidateMedicAppPaths } from "@/lib/revalidation";
-import { getBooleanValue } from "@/lib/validation";
+import {
+  getPreferredContactMethod,
+  getRequiredBoolean,
+  getTimeFormatPreference,
+} from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function getPreferredContactMethod(value: unknown): PreferredContactMethod {
-  return value === "email" || value === "sms" ? value : "app";
-}
-
-function getTimeFormat(value: unknown): TimeFormatPreference {
-  return value === "24h" ? "24h" : "12h";
-}
 
 export async function PATCH(request: Request) {
   try {
@@ -24,12 +16,18 @@ export async function PATCH(request: Request) {
     const body = (await request.json()) as Record<string, unknown>;
 
     const updatedUser = await updateUserPreferences({
-      chatbotEnabled: getBooleanValue(body.chatbotEnabled, true),
-      dailySummaryEnabled: getBooleanValue(body.dailySummaryEnabled, true),
-      highContrastEnabled: getBooleanValue(body.highContrastEnabled),
-      largeTextEnabled: getBooleanValue(body.largeTextEnabled),
+      chatbotEnabled: getRequiredBoolean(body.chatbotEnabled, "Chatbot setting"),
+      dailySummaryEnabled: getRequiredBoolean(
+        body.dailySummaryEnabled,
+        "Daily summary setting",
+      ),
+      highContrastEnabled: getRequiredBoolean(
+        body.highContrastEnabled,
+        "High contrast setting",
+      ),
+      largeTextEnabled: getRequiredBoolean(body.largeTextEnabled, "Large text setting"),
       preferredContactMethod: getPreferredContactMethod(body.preferredContactMethod),
-      timeFormat: getTimeFormat(body.timeFormat),
+      timeFormat: getTimeFormatPreference(body.timeFormat),
       userId: user.userId,
     });
 

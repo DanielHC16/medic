@@ -2,9 +2,10 @@ import { requireCurrentUser } from "@/lib/auth/dal";
 import { updateUserAccount } from "@/lib/db/medic-data";
 import { revalidateMedicAppPaths } from "@/lib/revalidation";
 import {
+  getEmail,
   getOptionalImageDataUrl,
-  getOptionalString,
-  getRequiredString,
+  getPersonName,
+  getPhoneNumber,
 } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -25,10 +26,10 @@ export async function PATCH(request: Request) {
     const body = (await request.json()) as Record<string, unknown>;
 
     const updatedUser = await updateUserAccount({
-      email: getRequiredString(body.email, "Email"),
-      firstName: getRequiredString(body.firstName, "First name"),
-      lastName: getRequiredString(body.lastName, "Last name"),
-      phone: getOptionalString(body.phone),
+      email: getEmail(body.email),
+      firstName: getPersonName(body.firstName, "First name"),
+      lastName: getPersonName(body.lastName, "Last name"),
+      phone: getPhoneNumber(body.phone, "Phone", { required: false }),
       profileImageDataUrl: getOptionalImageDataUrl(body.profileImageDataUrl, "Profile photo"),
       userId: user.userId,
     });

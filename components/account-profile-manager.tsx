@@ -163,6 +163,9 @@ export function AccountProfileManager(props: {
               <input
                 name="firstName"
                 required
+                autoComplete="given-name"
+                minLength={2}
+                maxLength={80}
                 value={formState.firstName}
                 onChange={(event) =>
                   setFormState((current) => ({
@@ -181,6 +184,9 @@ export function AccountProfileManager(props: {
               <input
                 name="lastName"
                 required
+                autoComplete="family-name"
+                minLength={2}
+                maxLength={80}
                 value={formState.lastName}
                 onChange={(event) =>
                   setFormState((current) => ({
@@ -199,6 +205,8 @@ export function AccountProfileManager(props: {
               name="email"
               required
               type="email"
+              autoComplete="email"
+              maxLength={254}
               value={formState.email}
               onChange={(event) =>
                 setFormState((current) => ({
@@ -214,6 +222,10 @@ export function AccountProfileManager(props: {
             <span className="text-sm font-medium text-[var(--foreground)]">Phone</span>
             <input
               name="phone"
+              autoComplete="tel"
+              inputMode="tel"
+              minLength={10}
+              maxLength={20}
               value={formState.phone}
               onChange={(event) =>
                 setFormState((current) => ({

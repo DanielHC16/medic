@@ -4,6 +4,15 @@ import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
+import { getLoginIdentifier, getLoginPassword } from '@/lib/validation';
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{
+    outcome: 'accepted' | 'dismissed';
+    platform: string;
+  }>;
+};
 
 export function SignInClient() {
   return (
@@ -66,8 +75,7 @@ function SignInPageShell({ inviteCode }: { inviteCode: string }) {
   const [error, setError] = useState<string | null>(null);
 
   // 3. PWA Install Prompt State
-  // We use `any` here because BeforeInstallPromptEvent is not a standard TS type yet
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallPopup, setShowInstallPopup] = useState(false);
 
   // Listen for the PWA install prompt event
@@ -76,7 +84,7 @@ function SignInPageShell({ inviteCode }: { inviteCode: string }) {
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
       // Stash the event so it can be triggered later.
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
       // Update UI notify the user they can install the PWA
       setShowInstallPopup(true);
     };
@@ -120,6 +128,9 @@ function SignInPageShell({ inviteCode }: { inviteCode: string }) {
     setError(null);
 
     try {
+      getLoginIdentifier(emailOrPhone);
+      getLoginPassword(password);
+
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -208,6 +219,8 @@ function SignInPageShell({ inviteCode }: { inviteCode: string }) {
             placeholder="Email or Phone Number"
             value={emailOrPhone}
             onChange={(e) => setEmailOrPhone(e.target.value)}
+            autoComplete="username"
+            maxLength={254}
             required
             className="w-full h-[60px] px-6 text-base bg-white text-[#3F6F50] border border-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] placeholder:text-[#CBD7D0] focus:ring-2 focus:ring-[#3F6F50] focus:border-[#3F6F50] transition"
           />
@@ -221,6 +234,8 @@ function SignInPageShell({ inviteCode }: { inviteCode: string }) {
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              maxLength={128}
               required
               className="w-full h-[60px] pl-6 pr-24 text-base bg-white text-[#3F6F50] border border-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.08)] placeholder:text-[#CBD7D0] focus:ring-2 focus:ring-[#3F6F50] focus:border-[#3F6F50] transition"
             />

@@ -35,6 +35,7 @@ const FAMILY_ROLE_ID = "role-family-member";
 
 type UserRow = {
   account_status: string;
+  auth_user_id: string | null;
   avatar_image_data_url: string | null;
   chatbot_enabled: boolean;
   daily_summary_enabled: boolean;
@@ -730,6 +731,7 @@ const schemaStatements = [
   `alter table users add column if not exists phone text`,
   `alter table users add column if not exists password_hash text`,
   `alter table users add column if not exists password_salt text`,
+  `alter table users add column if not exists auth_user_id text`,
   `alter table users add column if not exists onboarding_status text not null default 'ready'`,
   `alter table users add column if not exists last_login_at timestamptz`,
   `alter table users add column if not exists preferred_contact_method text not null default 'app'`,
@@ -740,6 +742,7 @@ const schemaStatements = [
   `alter table users add column if not exists chatbot_enabled boolean not null default true`,
   `alter table users add column if not exists avatar_image_data_url text`,
   `create unique index if not exists users_phone_unique_idx on users(phone) where phone is not null`,
+  `create unique index if not exists users_auth_user_unique_idx on users(auth_user_id) where auth_user_id is not null`,
   `create table if not exists patient_profiles (
     user_id text primary key references users(id) on delete cascade,
     date_of_birth date,
@@ -1712,6 +1715,7 @@ export async function getUserById(userId: string) {
        roles.slug as role,
        users.email,
        users.phone,
+       users.auth_user_id,
        users.first_name,
        users.last_name,
        users.account_status,
@@ -1742,6 +1746,7 @@ export async function getUserForAuth(identifier: string) {
        roles.slug as role,
        users.email,
        users.phone,
+       users.auth_user_id,
        users.first_name,
        users.last_name,
        users.account_status,
@@ -1765,9 +1770,80 @@ export async function getUserForAuth(identifier: string) {
   return row;
 }
 
+export async function findUserByEmailOrPhone(input: {
+  email: string;
+  excludeUserId?: string;
+  phone?: string | null;
+}) {
+  const normalizedEmail = normalizeEmail(input.email);
+  const normalizedPhone = normalizePhone(input.phone);
+
+  return queryOne<{ id: string }>(
+    `select id
+     from users
+     where (lower(email) = lower($1) or phone = $2)
+       and ($3::text is null or id <> $3)
+     limit 1`,
+    [normalizedEmail, normalizedPhone, input.excludeUserId ?? null],
+  );
+}
+
+export async function getUserByAuthUserId(authUserId: string) {
+  const row = await queryOne<UserRow>(
+    `select
+       users.id as user_id,
+       roles.slug as role,
+       users.email,
+       users.phone,
+       users.auth_user_id,
+       users.first_name,
+       users.last_name,
+       users.account_status,
+       users.onboarding_status,
+       users.avatar_image_data_url,
+       users.preferred_contact_method,
+       users.time_format,
+       users.large_text_enabled,
+       users.high_contrast_enabled,
+       users.daily_summary_enabled,
+       users.chatbot_enabled
+     from users
+     join roles on roles.id = users.role_id
+     where users.auth_user_id = $1`,
+    [authUserId],
+  );
+
+  return row ? mapUserRow(row) : null;
+}
+
+export async function linkUserAuthIdentity(input: {
+  authUserId: string | null;
+  userId: string;
+}) {
+  await ensureMedicSchemaReady();
+
+  if (!input.authUserId) {
+    return;
+  }
+
+  await queryMany(
+    `update users
+     set auth_user_id = coalesce(auth_user_id, $1),
+         updated_at = now()
+     where id = $2`,
+    [input.authUserId, input.userId],
+  );
+}
+
+export async function markUserLogin(userId: string) {
+  await ensureMedicSchemaReady();
+  await queryMany(`update users set last_login_at = now() where id = $1`, [userId]);
+}
+
 export async function registerUser(input: {
   approvalMode?: InviteApprovalMode;
   assistanceLevel?: string;
+  authUserId?: string | null;
   dateOfBirth?: string;
   email: string;
   emergencyNotes?: string;
@@ -1816,9 +1892,10 @@ export async function registerUser(input: {
        account_status,
        onboarding_status,
        password_hash,
-       password_salt
+       password_salt,
+       auth_user_id
      )
-     values ($1, $2, $3, $4, $5, $6, 'active', 'ready', $7, $8)`,
+     values ($1, $2, $3, $4, $5, $6, 'active', 'ready', $7, $8, $9)`,
     [
       userId,
       roleToRoleId(input.role),
@@ -1828,6 +1905,7 @@ export async function registerUser(input: {
       lastName,
       hash,
       salt,
+      input.authUserId ?? null,
     ],
   );
 

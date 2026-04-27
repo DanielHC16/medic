@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import type { PatientProfile } from "@/lib/medic-types";
+import { getSeniorDateOfBirth } from "@/lib/validation";
 
 const assistanceOptions = [
   { label: "Independent", value: "independent" },
@@ -24,12 +25,15 @@ export function PatientHealthManager(props: {
     dateOfBirth: props.profile?.dateOfBirth ?? "",
     emergencyNotes: props.profile?.emergencyNotes ?? "",
   });
+  const seniorCutoff = getSeniorBirthDateCutoff();
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
     setMessage(null);
 
     try {
+      getSeniorDateOfBirth(formData.get("dateOfBirth"), { required: false });
+
       const response = await fetch("/api/profile/health", {
         body: JSON.stringify({
           assistanceLevel: formData.get("assistanceLevel"),
@@ -81,6 +85,8 @@ export function PatientHealthManager(props: {
               name="dateOfBirth"
               type="date"
               value={formState.dateOfBirth}
+              min="1900-01-01"
+              max={seniorCutoff}
               onChange={(event) =>
                 setFormState((current) => ({
                   ...current,
@@ -128,6 +134,7 @@ export function PatientHealthManager(props: {
                 }))
               }
               className="medic-field min-h-32"
+              maxLength={1000}
               placeholder="Medication sensitivities, emergency contacts, mobility notes..."
             />
           </label>
@@ -173,6 +180,12 @@ export function PatientHealthManager(props: {
       </article>
     </section>
   );
+}
+
+function getSeniorBirthDateCutoff() {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - 51);
+  return date.toISOString().slice(0, 10);
 }
 
 function SummaryItem(props: { label: string; value: string }) {

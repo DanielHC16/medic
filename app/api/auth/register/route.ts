@@ -1,8 +1,19 @@
 import { getDefaultRouteForRole } from "@/lib/auth/dal";
-import { registerUser } from "@/lib/db/medic-data";
+import { registerUserWithNeonAuth } from "@/lib/auth/neon-credentials";
 import type { InviteApprovalMode, RoleSlug } from "@/lib/medic-types";
 import { createUserSession } from "@/lib/security/session";
-import { assertRole, getOptionalString, getRequiredString } from "@/lib/validation";
+import {
+  assertRole,
+  getAssistanceLevel,
+  getEmail,
+  getInviteApprovalMode,
+  getInviteCode,
+  getOptionalString,
+  getPassword,
+  getPersonName,
+  getPhoneNumber,
+  getSeniorDateOfBirth,
+} from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,21 +35,27 @@ export async function POST(request: Request) {
     };
 
     const role = assertRole(body.role);
-    const user = await registerUser({
-      approvalMode: body.approvalMode,
-      assistanceLevel: getOptionalString(body.assistanceLevel) ?? undefined,
+    const inviteCode = role === "patient"
+      ? undefined
+      : getInviteCode(body.inviteCode, { required: false }) ?? undefined;
+    const user = await registerUserWithNeonAuth({
+      approvalMode: getInviteApprovalMode(body.approvalMode),
+      assistanceLevel:
+        role === "patient" ? getAssistanceLevel(body.assistanceLevel) : undefined,
       dateOfBirth:
         role === "patient"
-          ? getRequiredString(body.dateOfBirth, "Date of birth")
-          : getOptionalString(body.dateOfBirth) ?? undefined,
-      email: getRequiredString(body.email, "Email"),
+          ? getSeniorDateOfBirth(body.dateOfBirth) ?? undefined
+          : undefined,
+      email: getEmail(body.email),
       emergencyNotes:
-        role === "patient" ? getOptionalString(body.emergencyNotes) ?? undefined : undefined,
-      firstName: getRequiredString(body.firstName, "First name"),
-      inviteCode: getOptionalString(body.inviteCode) ?? undefined,
-      lastName: getRequiredString(body.lastName, "Last name"),
-      password: getRequiredString(body.password, "Password"),
-      phone: getRequiredString(body.phone, "Phone"),
+        role === "patient"
+          ? getOptionalString(body.emergencyNotes, "Emergency notes", 1000) ?? undefined
+          : undefined,
+      firstName: getPersonName(body.firstName, "First name"),
+      inviteCode,
+      lastName: getPersonName(body.lastName, "Last name"),
+      password: getPassword(body.password),
+      phone: getPhoneNumber(body.phone),
       role,
     });
 

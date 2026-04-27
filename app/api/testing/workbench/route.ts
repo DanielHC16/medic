@@ -10,8 +10,25 @@ import {
 import { isTestingWorkbenchEnabled } from "@/lib/testing";
 import {
   assertRole,
+  getAssistanceLevel,
+  getDateTime,
+  getDosageUnit,
+  getDosageValue,
+  getEmail,
+  getEntityId,
+  getInviteApprovalMode,
   getOptionalString,
+  getPassword,
+  getPersonName,
+  getPhoneNumber,
+  getPositiveInteger,
   getRequiredString,
+  getRoutineFrequency,
+  getMedicationFrequency,
+  getSafeText,
+  getSeniorDateOfBirth,
+  getTimeArray,
+  getWeekdayArray,
 } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -20,24 +37,6 @@ export const dynamic = "force-dynamic";
 type TestingBody = Record<string, unknown> & {
   kind?: string;
 };
-
-function getCsvArray(value: unknown) {
-  if (Array.isArray(value)) {
-    return value
-      .filter((item): item is string => typeof item === "string")
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
-
-  if (typeof value !== "string") {
-    return [];
-  }
-
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
 
 function ensureWorkbenchEnabled() {
   if (!isTestingWorkbenchEnabled()) {
@@ -52,7 +51,7 @@ async function resolveCreatorUserId(
   patientUserId: string,
 ) {
   if (typeof createdByUserId === "string" && createdByUserId.trim().length > 0) {
-    return createdByUserId.trim();
+    return getEntityId(createdByUserId, "Creator");
   }
 
   return patientUserId;
@@ -77,13 +76,17 @@ export async function POST(request: Request) {
     if (kind === "user") {
       const role = assertRole(body.role);
       const createdUser = await registerUser({
-        assistanceLevel: getOptionalString(body.assistanceLevel) || undefined,
-        dateOfBirth: getOptionalString(body.dateOfBirth) || undefined,
-        email: getRequiredString(body.email, "Email"),
-        firstName: getRequiredString(body.firstName, "First name"),
-        lastName: getRequiredString(body.lastName, "Last name"),
-        password: getOptionalString(body.password) || "MedicTest123!",
-        phone: getOptionalString(body.phone) || undefined,
+        assistanceLevel:
+          role === "patient" ? getAssistanceLevel(body.assistanceLevel) : undefined,
+        dateOfBirth:
+          role === "patient"
+            ? getSeniorDateOfBirth(body.dateOfBirth) ?? undefined
+            : undefined,
+        email: getEmail(body.email),
+        firstName: getPersonName(body.firstName, "First name"),
+        lastName: getPersonName(body.lastName, "Last name"),
+        password: body.password ? getPassword(body.password) : "MedicTest123!",
+        phone: getPhoneNumber(body.phone, "Phone", { required: false }) || undefined,
         role,
       });
 
@@ -95,7 +98,7 @@ export async function POST(request: Request) {
     }
 
     if (kind === "invite") {
-      const patientUserId = getRequiredString(body.patientUserId, "Patient");
+      const patientUserId = getEntityId(body.patientUserId, "Patient");
       await ensurePatientUser(patientUserId);
       const memberRole = assertRole(body.memberRole);
 
@@ -104,10 +107,7 @@ export async function POST(request: Request) {
       }
 
       const invitation = await createInvitation({
-        approvalMode:
-          getRequiredString(body.approvalMode, "Approval mode") === "auto"
-            ? "auto"
-            : "manual",
+        approvalMode: getInviteApprovalMode(body.approvalMode),
         createdByUserId: await resolveCreatorUserId(body.createdByUserId, patientUserId),
         memberRole,
         patientUserId,
@@ -121,19 +121,22 @@ export async function POST(request: Request) {
     }
 
     if (kind === "medication") {
-      const patientUserId = getRequiredString(body.patientUserId, "Patient");
+      const patientUserId = getEntityId(body.patientUserId, "Patient");
       await ensurePatientUser(patientUserId);
       const medicationId = await createMedicationWithSchedule({
         createdByUserId: await resolveCreatorUserId(body.createdByUserId, patientUserId),
-        daysOfWeek: getCsvArray(body.daysOfWeek),
-        dosageUnit: getOptionalString(body.dosageUnit),
-        dosageValue: getRequiredString(body.dosageValue, "Dosage value"),
-        form: getRequiredString(body.form, "Form"),
-        frequencyType: getRequiredString(body.frequencyType, "Frequency"),
-        instructions: getOptionalString(body.instructions),
-        name: getRequiredString(body.name, "Medication name"),
+        daysOfWeek: getWeekdayArray(body.daysOfWeek),
+        dosageUnit: getDosageUnit(body.dosageUnit),
+        dosageValue: getDosageValue(body.dosageValue),
+        form: getSafeText(body.form, "Form", { maxLength: 60 }),
+        frequencyType: getMedicationFrequency(body.frequencyType),
+        instructions: getOptionalString(body.instructions, "Instructions", 1000),
+        name: getSafeText(body.name, "Medication name", {
+          maxLength: 100,
+          minLength: 2,
+        }),
         patientUserId,
-        timesOfDay: getCsvArray(body.timesOfDay),
+        timesOfDay: getTimeArray(body.timesOfDay),
       });
 
       return Response.json({
@@ -144,21 +147,24 @@ export async function POST(request: Request) {
     }
 
     if (kind === "activity") {
-      const patientUserId = getRequiredString(body.patientUserId, "Patient");
+      const patientUserId = getEntityId(body.patientUserId, "Patient");
       await ensurePatientUser(patientUserId);
 
       await createActivityPlan({
-        category: getRequiredString(body.category, "Category"),
+        category: getSafeText(body.category, "Category", { maxLength: 60 }),
         createdByUserId: await resolveCreatorUserId(body.createdByUserId, patientUserId),
-        daysOfWeek: getCsvArray(body.daysOfWeek),
-        frequencyType: getRequiredString(body.frequencyType, "Frequency"),
-        instructions: getOptionalString(body.instructions),
+        daysOfWeek: getWeekdayArray(body.daysOfWeek),
+        frequencyType: getRoutineFrequency(body.frequencyType),
+        instructions: getOptionalString(body.instructions, "Instructions", 1000),
         patientUserId,
-        targetMinutes:
-          typeof body.targetMinutes === "number"
-            ? body.targetMinutes
-            : Number(body.targetMinutes || 0) || null,
-        title: getRequiredString(body.title, "Activity title"),
+        targetMinutes: getPositiveInteger(body.targetMinutes, "Target minutes", {
+          max: 240,
+          required: false,
+        }),
+        title: getSafeText(body.title, "Activity title", {
+          maxLength: 100,
+          minLength: 2,
+        }),
       });
 
       return Response.json({
@@ -168,17 +174,20 @@ export async function POST(request: Request) {
     }
 
     if (kind === "appointment") {
-      const patientUserId = getRequiredString(body.patientUserId, "Patient");
+      const patientUserId = getEntityId(body.patientUserId, "Patient");
       await ensurePatientUser(patientUserId);
 
       await createAppointment({
-        appointmentAt: getRequiredString(body.appointmentAt, "Appointment date and time"),
+        appointmentAt: getDateTime(body.appointmentAt, "Appointment date and time"),
         createdByUserId: await resolveCreatorUserId(body.createdByUserId, patientUserId),
-        location: getOptionalString(body.location),
-        notes: getOptionalString(body.notes),
+        location: getOptionalString(body.location, "Location", 200),
+        notes: getOptionalString(body.notes, "Notes", 1000),
         patientUserId,
-        providerName: getOptionalString(body.providerName),
-        title: getRequiredString(body.title, "Appointment title"),
+        providerName: getOptionalString(body.providerName, "Provider name", 120),
+        title: getSafeText(body.title, "Appointment title", {
+          maxLength: 120,
+          minLength: 2,
+        }),
       });
 
       return Response.json({

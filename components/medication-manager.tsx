@@ -6,6 +6,7 @@ import {
   type ChangeEvent,
   type Dispatch,
   type FormEvent,
+  type HTMLAttributes,
   type SetStateAction,
   useEffect,
   useState,
@@ -910,6 +911,8 @@ function MedicationFormFields(props: {
       <Field
         label="Medication name"
         value={props.draft.name}
+        minLength={2}
+        maxLength={100}
         onChange={(value) =>
           props.setDraft((current) => ({
             ...current,
@@ -924,7 +927,9 @@ function MedicationFormFields(props: {
           label="Dosage value"
           type="number"
           step="0.01"
-          min="0"
+          min="0.001"
+          max="999999"
+          inputMode="decimal"
           value={props.draft.dosageValue}
           onChange={(value) =>
             props.setDraft((current) => ({
@@ -938,6 +943,7 @@ function MedicationFormFields(props: {
           label="Dosage unit"
           listId={`${props.formIdPrefix}-dosage-units`}
           value={props.draft.dosageUnit}
+          maxLength={20}
           onChange={(value) =>
             props.setDraft((current) => ({
               ...current,
@@ -958,6 +964,7 @@ function MedicationFormFields(props: {
         label="Medication form"
         listId={`${props.formIdPrefix}-medication-forms`}
         value={props.draft.form}
+        maxLength={60}
         onChange={(value) =>
           props.setDraft((current) => ({
             ...current,
@@ -1037,6 +1044,7 @@ function MedicationFormFields(props: {
                 type="time"
                 value={time}
                 onChange={(event) => updateTime(index, event.target.value)}
+                required
                 className="medic-field"
               />
               <button
@@ -1102,6 +1110,7 @@ function MedicationFormFields(props: {
             }))
           }
           placeholder="Example: Crush and mix with applesauce if swallowing is difficult."
+          maxLength={1000}
           className="medic-field min-h-24"
         />
       </label>
@@ -1151,9 +1160,13 @@ function MedicationFormFields(props: {
 }
 
 function Field(props: {
+  inputMode?: HTMLAttributes<HTMLInputElement>["inputMode"];
   label: string;
   listId?: string;
+  max?: string;
+  maxLength?: number;
   min?: string;
+  minLength?: number;
   onChange?: (value: string) => void;
   placeholder?: string;
   required?: boolean;
@@ -1171,7 +1184,11 @@ function Field(props: {
         placeholder={props.placeholder}
         required={props.required}
         list={props.listId}
+        inputMode={props.inputMode}
+        max={props.max}
+        maxLength={props.maxLength}
         min={props.min}
+        minLength={props.minLength}
         step={props.step}
         className="medic-field"
       />
