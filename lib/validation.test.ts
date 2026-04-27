@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getEmail,
   getPassword,
+  getPasswordRequirementStatuses,
   getSeniorDateOfBirth,
   getTimeArray,
   getWeekdayArray,
@@ -23,7 +24,10 @@ describe("input validation", () => {
 
   it("requires strong passwords for new accounts", () => {
     expect(getPassword("MedicPass123!")).toBe("MedicPass123!");
-    expect(() => getPassword("medicpass")).toThrow(/uppercase/i);
+    expect(() => getPassword("medicpass")).toThrow(/uppercase letter.*number.*symbol/i);
+    expect(getPasswordRequirementStatuses("MedicPass123!").every(({ isMet }) => isMet)).toBe(
+      true,
+    );
   });
 
   it("normalizes weekday and time arrays", () => {
@@ -38,4 +42,3 @@ describe("input validation", () => {
     ]);
   });
 });
-

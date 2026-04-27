@@ -8,6 +8,7 @@ import {
   getEmail,
   getInviteCode,
   getPassword,
+  getPasswordRequirementStatuses,
   getPersonName,
   getPhoneNumber,
   getSeniorDateOfBirth,
@@ -81,6 +82,7 @@ export function SignUpClient() {
   const [finalRedirectUrl, setFinalRedirectUrl] = useState<string | null>(null);
 
   const seniorCutoff = getSeniorBirthDateCutoff();
+  const passwordRequirements = getPasswordRequirementStatuses(formData.password);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -232,14 +234,14 @@ export function SignUpClient() {
     }
     // Step 4: Passwords
     if (step === 4) {
-      if (formData.password !== formData.confirmPassword) {
-        setError("Passwords do not match.");
-        return;
-      }
       try {
         getPassword(formData.password);
       } catch (validationError) {
         setError(validationError instanceof Error ? validationError.message : 'Please enter a stronger password.');
+        return;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        setError("Passwords do not match.");
         return;
       }
       
@@ -473,6 +475,28 @@ export function SignUpClient() {
                     <EyeIcon className="w-5 h-5" aria-hidden="true" />
                   </button>
                 </div>
+                <ul
+                  aria-label="Password requirements"
+                  aria-live="polite"
+                  className="grid gap-1 px-4 pt-1 text-xs leading-5 text-[#4A5D52]"
+                >
+                  {passwordRequirements.map((requirement) => (
+                    <li key={requirement.id} className="flex items-start gap-2">
+                      <span
+                        aria-hidden="true"
+                        className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
+                          requirement.isMet ? 'bg-[#3F6F50]' : 'bg-[#CBD7D0]'
+                        }`}
+                      />
+                      <span>
+                        <span className="sr-only">
+                          {requirement.isMet ? 'Met: ' : 'Missing: '}
+                        </span>
+                        {requirement.label}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-[#4A5D52] ml-4">Type Password Again:</label>

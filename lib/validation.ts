@@ -175,6 +175,35 @@ const PASSWORD_MAX_LENGTH = 128;
 const MAX_BIRTH_DATE = "1900-01-01";
 export const MIN_SENIOR_AGE = 51;
 
+const PASSWORD_REQUIREMENTS = [
+  {
+    id: "length",
+    label: `${PASSWORD_MIN_LENGTH} to ${PASSWORD_MAX_LENGTH} characters`,
+    test: (password: string) =>
+      password.length >= PASSWORD_MIN_LENGTH && password.length <= PASSWORD_MAX_LENGTH,
+  },
+  {
+    id: "lowercase",
+    label: "a lowercase letter",
+    test: (password: string) => /[a-z]/.test(password),
+  },
+  {
+    id: "uppercase",
+    label: "an uppercase letter",
+    test: (password: string) => /[A-Z]/.test(password),
+  },
+  {
+    id: "number",
+    label: "a number",
+    test: (password: string) => /[0-9]/.test(password),
+  },
+  {
+    id: "symbol",
+    label: "a symbol",
+    test: (password: string) => /[^A-Za-z0-9]/.test(password),
+  },
+] as const;
+
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const WEEKDAY_ALIASES = new Map([
   ["sunday", "Sun"],
@@ -361,24 +390,50 @@ export function getPhoneNumber(
   return digits;
 }
 
+function formatRequirementList(items: string[]) {
+  if (items.length <= 1) {
+    return items[0] ?? "";
+  }
+
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`;
+  }
+
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+export function getPasswordRequirementStatuses(value: unknown) {
+  const password = typeof value === "string" ? value.trim() : "";
+
+  return PASSWORD_REQUIREMENTS.map((requirement) => ({
+    id: requirement.id,
+    isMet: requirement.test(password),
+    label: requirement.label,
+  }));
+}
+
+export function getPasswordRequirementMessage(value: unknown) {
+  const missingRequirements = getPasswordRequirementStatuses(value)
+    .filter((requirement) => !requirement.isMet)
+    .map((requirement) => requirement.label);
+
+  if (missingRequirements.length === 0) {
+    return null;
+  }
+
+  return `Password must include ${formatRequirementList(missingRequirements)}.`;
+}
+
 export function getPassword(value: unknown) {
-  const password = getRequiredString(value, "Password");
-  assertLength(password, "Password", PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH);
-
-  if (!/[a-z]/.test(password)) {
-    throw new Error("Password must include a lowercase letter.");
+  if (typeof value !== "string") {
+    throw new Error("Password must be valid text.");
   }
 
-  if (!/[A-Z]/.test(password)) {
-    throw new Error("Password must include an uppercase letter.");
-  }
+  const password = value.trim();
+  const requirementMessage = getPasswordRequirementMessage(password);
 
-  if (!/[0-9]/.test(password)) {
-    throw new Error("Password must include a number.");
-  }
-
-  if (!/[^A-Za-z0-9]/.test(password)) {
-    throw new Error("Password must include a symbol.");
+  if (requirementMessage) {
+    throw new Error(requirementMessage);
   }
 
   return password;

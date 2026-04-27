@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Atkinson_Hyperlegible, Inter } from "next/font/google";
 import "./globals.css";
 
+export const dynamic = "force-dynamic";
+
 const atkinson = Atkinson_Hyperlegible({
   subsets: ["latin"],
   weight: ["400", "700"],
