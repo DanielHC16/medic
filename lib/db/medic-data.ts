@@ -1,5 +1,6 @@
 import { createId, createInviteCode } from "@/lib/ids";
 import { buildInvitePath, normalizeInviteCode } from "@/lib/invite-links";
+import { getMedicationIntervalHoursForSchedule } from "@/lib/medication-reminders";
 import type {
   ActivityLogRecord,
   ActivityCompletionStatus,
@@ -89,6 +90,7 @@ type MedicationRow = {
   id: string;
   image_data_url: string | null;
   instructions: string | null;
+  interval_hours: number | null;
   is_active: boolean;
   latest_log_status: MedicationLogStatus | null;
   latest_taken_at: string | null;
@@ -969,6 +971,7 @@ function mapMedicationRow(row: MedicationRow): MedicationRecord {
     id: row.id,
     imageDataUrl: row.image_data_url,
     instructions: row.instructions,
+    intervalHours: row.interval_hours,
     isActive: row.is_active,
     latestLogStatus: row.latest_log_status,
     latestTakenAt: row.latest_taken_at,
@@ -1314,15 +1317,17 @@ async function seedDemoMedicationAndWellnessData() {
          frequency_type,
          days_of_week,
          times_of_day,
+         interval_hours,
          start_date
        )
-       values ($1, $2, $3, $4, $5, $6, current_date)
+       values ($1, $2, $3, $4, $5, $6, $7, current_date)
        on conflict (id) do update
        set medication_id = excluded.medication_id,
            patient_user_id = excluded.patient_user_id,
            frequency_type = excluded.frequency_type,
            days_of_week = excluded.days_of_week,
            times_of_day = excluded.times_of_day,
+           interval_hours = excluded.interval_hours,
            updated_at = now()`,
       [
         medication.scheduleId,
@@ -1331,6 +1336,10 @@ async function seedDemoMedicationAndWellnessData() {
         medication.frequencyType,
         medication.scheduleDays,
         medication.scheduleTimes,
+        getMedicationIntervalHoursForSchedule(
+          medication.frequencyType,
+          medication.scheduleTimes,
+        ),
       ],
     );
 
@@ -2469,6 +2478,10 @@ export async function createMedicationWithSchedule(input: {
 }) {
   const medicationId = createId("med");
   const scheduleId = createId("sched");
+  const intervalHours = getMedicationIntervalHoursForSchedule(
+    input.frequencyType,
+    input.timesOfDay,
+  );
 
   await queryMany(
     `insert into medications (
@@ -2508,7 +2521,7 @@ export async function createMedicationWithSchedule(input: {
        interval_hours,
        start_date
      )
-     values ($1, $2, $3, $4, $5::text[], $6::text[], null, current_date)`,
+     values ($1, $2, $3, $4, $5::text[], $6::text[], $7, current_date)`,
     [
       scheduleId,
       medicationId,
@@ -2516,6 +2529,7 @@ export async function createMedicationWithSchedule(input: {
       input.frequencyType,
       input.daysOfWeek,
       input.timesOfDay,
+      intervalHours,
     ],
   );
 
@@ -2542,6 +2556,7 @@ export async function listMedicationsForPatient(
        medication_schedules.frequency_type as schedule_frequency_type,
        medication_schedules.days_of_week as schedule_days,
        medication_schedules.times_of_day as schedule_times,
+       medication_schedules.interval_hours,
        latest_log.status as latest_log_status,
        latest_log.taken_at::text as latest_taken_at
      from medications
@@ -2596,6 +2611,10 @@ export async function updateMedicationWithSchedule(input: {
   patientUserId: string;
   timesOfDay: string[];
 }) {
+  const intervalHours = getMedicationIntervalHoursForSchedule(
+    input.frequencyType,
+    input.timesOfDay,
+  );
   const ownership = await getMedicationOwnership({
     medicationId: input.medicationId,
     patientUserId: input.patientUserId,
@@ -2633,12 +2652,14 @@ export async function updateMedicationWithSchedule(input: {
        set frequency_type = $1,
            days_of_week = $2::text[],
            times_of_day = $3::text[],
+           interval_hours = $4,
            updated_at = now()
-       where id = $4 and patient_user_id = $5`,
+       where id = $5 and patient_user_id = $6`,
       [
         input.frequencyType.trim(),
         input.daysOfWeek,
         input.timesOfDay,
+        intervalHours,
         ownership.schedule_id,
         input.patientUserId,
       ],
@@ -2655,7 +2676,7 @@ export async function updateMedicationWithSchedule(input: {
          interval_hours,
          start_date
        )
-       values ($1, $2, $3, $4, $5::text[], $6::text[], null, current_date)`,
+       values ($1, $2, $3, $4, $5::text[], $6::text[], $7, current_date)`,
       [
         createId("sched"),
         input.medicationId,
@@ -2663,6 +2684,7 @@ export async function updateMedicationWithSchedule(input: {
         input.frequencyType.trim(),
         input.daysOfWeek,
         input.timesOfDay,
+        intervalHours,
       ],
     );
   }
@@ -2798,6 +2820,100 @@ export async function getMedicationAdherenceSummary(
     skippedToday: summary?.skipped_today ?? 0,
     takenToday: summary?.taken_today ?? 0,
   } satisfies MedicationAdherenceSummary;
+}
+
+export async function markMedicationLogTaken(input: {
+  logId: string;
+  medicationId: string;
+  notes?: string | null;
+  patientUserId: string;
+  recordedByUserId: string;
+  scheduledFor?: string | null;
+  takenAt: string;
+}) {
+  const ownership = await getMedicationOwnership({
+    medicationId: input.medicationId,
+    patientUserId: input.patientUserId,
+  });
+
+  if (!ownership) {
+    throw new Error("That medication could not be found for this patient.");
+  }
+
+  const existingLog = await queryOne<{
+    id: string;
+    logged_for_date: string | null;
+    scheduled_for: string | null;
+    status: MedicationLogStatus;
+  }>(
+    `select
+       id,
+       logged_for_date::text,
+       scheduled_for::text,
+       status
+     from medication_logs
+     where id = $1
+       and medication_id = $2
+       and patient_user_id = $3`,
+    [input.logId, input.medicationId, input.patientUserId],
+  );
+
+  if (!existingLog) {
+    throw new Error("That missed medication log could not be found.");
+  }
+
+  if (existingLog.status === "taken") {
+    return existingLog.id;
+  }
+
+  const loggedForDate =
+    existingLog.logged_for_date ||
+    (input.scheduledFor || existingLog.scheduled_for || input.takenAt).slice(0, 10);
+  const maxTakenEntriesForDay = Math.max(ownership.schedule_times?.length ?? 0, 1);
+  const takenCountForDate = await queryOne<{ total: number }>(
+    `select count(*)::int as total
+     from medication_logs
+     where medication_id = $1
+       and patient_user_id = $2
+       and status = 'taken'
+       and logged_for_date = $3::date
+       and id <> $4`,
+    [input.medicationId, input.patientUserId, loggedForDate, input.logId],
+  );
+
+  if ((takenCountForDate?.total ?? 0) >= maxTakenEntriesForDay) {
+    throw new Error(
+      maxTakenEntriesForDay === 1
+        ? "This medication was already marked as taken for this date."
+        : "All scheduled doses for this medication were already marked as taken for this date.",
+    );
+  }
+
+  await queryMany(
+    `update medication_logs
+     set status = 'taken',
+         taken_at = $1,
+         scheduled_for = coalesce(scheduled_for, $2),
+         logged_for_date = $3::date,
+         recorded_by_user_id = $4,
+         notes = coalesce($5, notes),
+         source = 'online'
+     where id = $6
+       and medication_id = $7
+       and patient_user_id = $8`,
+    [
+      input.takenAt,
+      input.scheduledFor || existingLog.scheduled_for || null,
+      loggedForDate,
+      input.recordedByUserId,
+      input.notes || null,
+      input.logId,
+      input.medicationId,
+      input.patientUserId,
+    ],
+  );
+
+  return existingLog.id;
 }
 
 export async function recordMedicationLog(input: {

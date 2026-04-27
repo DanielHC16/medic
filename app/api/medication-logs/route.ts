@@ -4,6 +4,7 @@ import {
 } from "@/lib/auth/dal";
 import {
   listMedicationLogsForPatient,
+  markMedicationLogTaken,
   recordMedicationLog,
 } from "@/lib/db/medic-data";
 import { revalidateMedicAppPaths } from "@/lib/revalidation";
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
       clientRef?: string | null;
+      logId?: string | null;
       localDate?: string | null;
       medicationId?: string;
       notes?: string | null;
@@ -56,6 +58,7 @@ export async function POST(request: Request) {
       getEntityId(body.patientUserId, "Patient", { required: false }),
     );
     const status = getMedicationLogStatus(body.status);
+    const logId = getEntityId(body.logId, "Medication log", { required: false });
 
     if (!scope.patientUserId || !canManagePatientData(scope.user.role)) {
       return Response.json(
@@ -67,26 +70,41 @@ export async function POST(request: Request) {
       );
     }
 
-    const logId = await recordMedicationLog({
+    const medicationId = getEntityId(body.medicationId, "Medication");
+    const scheduledFor = getOptionalDateTime(body.scheduledFor, "Scheduled time");
+    const takenAt =
+      status === "taken"
+        ? getOptionalDateTime(body.takenAt, "Taken time") ?? new Date().toISOString()
+        : getOptionalDateTime(body.takenAt, "Taken time");
+
+    const recordedLogId =
+      logId && status === "taken"
+        ? await markMedicationLogTaken({
+            logId,
+            medicationId,
+            notes: getOptionalString(body.notes, "Notes", 1000),
+            patientUserId: scope.patientUserId,
+            recordedByUserId: scope.user.userId,
+            scheduledFor,
+            takenAt: takenAt ?? new Date().toISOString(),
+          })
+        : await recordMedicationLog({
       clientRef: getEntityId(body.clientRef, "Client reference", { required: false }),
       localDate: getDateOnly(body.localDate, "Local date", { required: false }),
-      medicationId: getEntityId(body.medicationId, "Medication"),
+      medicationId,
       notes: getOptionalString(body.notes, "Notes", 1000),
       patientUserId: scope.patientUserId,
       recordedByUserId: scope.user.userId,
       scheduleId: getEntityId(body.scheduleId, "Schedule", { required: false }),
-      scheduledFor: getOptionalDateTime(body.scheduledFor, "Scheduled time"),
+      scheduledFor,
       status,
-      takenAt:
-        status === "taken"
-          ? getOptionalDateTime(body.takenAt, "Taken time") ?? new Date().toISOString()
-          : getOptionalDateTime(body.takenAt, "Taken time"),
+      takenAt,
     });
 
     revalidateMedicAppPaths();
 
     return Response.json({
-      logId,
+      logId: recordedLogId,
       ok: true,
     });
   } catch (error) {

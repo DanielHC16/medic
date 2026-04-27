@@ -86,6 +86,7 @@ export type MedicationRecord = {
   id: string;
   imageDataUrl: string | null;
   instructions: string | null;
+  intervalHours?: number | null;
   isActive: boolean;
   latestLogStatus: MedicationLogStatus | null;
   latestTakenAt: string | null;

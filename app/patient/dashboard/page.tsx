@@ -3,10 +3,16 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PatientDashboardChatbot } from "@/components/patient-dashboard-chatbot";
 import { PatientBottomNav } from "@/components/patient-bottom-nav";
 import { InviteSharePanel } from "@/components/invite-share-panel";
 import { formatDayList, formatStatusLabel, formatTimeList } from "@/lib/display";
+import {
+  getLocalDateKey,
+  getMedicationIntervalHours,
+  getNextReminderSlot,
+} from "@/lib/medication-reminders";
 import type { PatientDashboardData, ActivityPlanRecord } from "@/lib/medic-types";
 import {
   Sun, QrCode, UserRound, Bell, Bot,
@@ -29,18 +35,23 @@ function statusPillClass(status: string): string {
 //Medication Modal
 
 function MedicationModal({
-  med, summary, onClose,
+  med, onClose, onMedicationLogged, patientUserId, summary,
 }: {
   med: PatientDashboardData["medications"][0];
+  onMedicationLogged: () => Promise<void> | void;
   summary: PatientDashboardData["medicationSummary"];
+  patientUserId: string;
   onClose: () => void;
 }) {
   const [showMissed, setShowMissed] = useState(false);
   const [missedLogs, setMissedLogs] = useState<Array<{
     id: string; medicationName: string; scheduledFor: string | null;
     takenAt: string | null; status: string; notes: string | null; createdAt: string;
+    loggedForDate?: string | null; medicationId: string;
   }> | null>(null);
   const [loadingMissed, setLoadingMissed] = useState(false);
+  const [pendingLogId, setPendingLogId] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   const taken = summary.takenToday;
   const missed = Math.max(0, summary.activeMedications - summary.takenToday);
@@ -51,11 +62,55 @@ function MedicationModal({
       try {
         const res = await fetch("/api/medication-logs");
         const json = await res.json();
-        setMissedLogs((json?.logs ?? []).filter((l: { status: string }) => l.status === "missed"));
+        setMissedLogs((json?.logs ?? []).filter((l: { medicationId: string; status: string }) => l.status === "missed" && l.medicationId === med.id));
       } catch { setMissedLogs([]); }
       finally { setLoadingMissed(false); }
     }
     setShowMissed((v) => !v);
+  };
+
+  const handleTakeMissedNow = async (log: {
+    id: string;
+    loggedForDate?: string | null;
+    medicationId: string;
+    notes: string | null;
+    scheduledFor: string | null;
+  }) => {
+    setPendingLogId(log.id);
+    setMessage(null);
+
+    try {
+      const now = new Date();
+      const response = await fetch("/api/medication-logs", {
+        body: JSON.stringify({
+          localDate: log.loggedForDate ?? getLocalDateKey(now),
+          logId: log.id,
+          medicationId: log.medicationId,
+          notes: log.notes ?? "Taken after missed dose.",
+          patientUserId,
+          scheduledFor: log.scheduledFor,
+          status: "taken",
+          takenAt: now.toISOString(),
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const payload = (await response.json()) as { message?: string; ok: boolean };
+
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.message || "Unable to take this missed dose now.");
+      }
+
+      setMissedLogs((current) => current?.filter((item) => item.id !== log.id) ?? null);
+      setMessage("Missed dose was logged as taken now.");
+      await onMedicationLogged();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to take this missed dose now.");
+    } finally {
+      setPendingLogId(null);
+    }
   };
 
   return (
@@ -94,7 +149,7 @@ function MedicationModal({
             <div>
               <p className="text-[13px] opacity-60">Every</p>
               <p className="text-[17px] font-bold leading-tight">
-                {med.scheduleTimes.length > 1 ? `${Math.round(24 / med.scheduleTimes.length)} Hours` : "24 Hours"}
+                {med.scheduleTimes.length > 1 ? `${getMedicationIntervalHours(med)} Hours` : "24 Hours"}
               </p>
             </div>
           </div>
@@ -161,10 +216,18 @@ function MedicationModal({
                   const dateStr = dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Manila" });
                   const timeStr = dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Manila" });
                   return (
-                    <div key={log.id} className="px-4 py-3 flex justify-between items-start">
+                    <div key={log.id} className="px-4 py-3 flex justify-between items-start gap-3">
                       <div>
                         <p className="text-[13px] font-semibold">{log.medicationName}</p>
                         {log.notes && <p className="text-[13px] opacity-60 mt-0.5">{log.notes}</p>}
+                        <button
+                          type="button"
+                          onClick={() => handleTakeMissedNow(log)}
+                          disabled={pendingLogId === log.id}
+                          className="mt-2 rounded-full bg-[#4A7C59] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {pendingLogId === log.id ? "Saving..." : "Take now"}
+                        </button>
                       </div>
                       <div className="text-right flex-shrink-0 ml-3">
                         <p className="text-[13px] font-semibold opacity-70">{dateStr}</p>
@@ -177,6 +240,11 @@ function MedicationModal({
             )}
           </div>
         )}
+        {message ? (
+          <p className="mt-3 rounded-xl bg-[#F1F3F2] px-4 py-3 text-[13px] font-semibold text-[#4A5D52]">
+            {message}
+          </p>
+        ) : null}
 
         {!showMissed && <div className="mb-6" />}
         <p className="text-[13px] font-bold mb-2">Notes:</p>
@@ -581,6 +649,7 @@ function ActivityBarChart({ plans }: { plans: ActivityPlanRecord[] }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PatientDashboardPage() {
+  const router = useRouter();
   const [data, setData] = useState<PatientDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [aiRecommendation, setAiRecommendation] = useState<string | null>(null);
@@ -590,6 +659,18 @@ export default function PatientDashboardPage() {
   const [activityModalFilter, setActivityModalFilter] = useState<"all" | "done" | "missed" | "planned" | null>(null);
   const [selectedMed, setSelectedMed] = useState<PatientDashboardData["medications"][0] | null>(null);
   const [selectedAppt, setSelectedAppt] = useState<PatientDashboardData["appointments"][0] | null>(null);
+
+  async function refreshDashboardData() {
+    const response = await fetch("/api/dashboard/patient", { cache: "no-store" });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload?.message || "Unable to refresh the dashboard.");
+    }
+
+    setData(payload?.data ?? payload ?? null);
+    router.refresh();
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -648,7 +729,18 @@ export default function PatientDashboardPage() {
   const nextAppt  = (data?.appointments ?? []).filter(
     (a) => a.status !== "cancelled" && new Date(a.appointmentAt) > nowManila
   )[0] ?? null;
-  const nextMed   = data?.medications?.[0] ?? null;
+  const nextMedicationEntry = (data?.medications ?? [])
+    .map((medication) => ({
+      medication,
+      nextSlot: getNextReminderSlot(
+        medication,
+        data?.recentMedicationLogs ?? [],
+        today,
+      ),
+    }))
+    .filter((entry): entry is { medication: PatientDashboardData["medications"][0]; nextSlot: Date } => Boolean(entry.nextSlot))
+    .sort((left, right) => left.nextSlot.getTime() - right.nextSlot.getTime())[0] ?? null;
+  const nextMed = nextMedicationEntry?.medication ?? null;
   const actPlans  = data?.activityPlans ?? [];
   const activityCounts = getActivityCounts(actPlans);
 
@@ -657,18 +749,14 @@ export default function PatientDashboardPage() {
   const missed  = Math.max(0, summary.activeMedications - taken);
   const pending = Math.max(0, total - taken);
 
-  const nextMedTime = (() => {
-    if (!nextMed?.scheduleTimes?.length) return null;
-    const nowH = nowManila.getHours();
-    const nowM = nowManila.getMinutes();
-    const upcoming = nextMed.scheduleTimes.find((t) => {
-      const [h, m] = t.split(":").map(Number);
-      return h > nowH || (h === nowH && m > nowM);
-    });
-    const t = upcoming ?? nextMed.scheduleTimes[0];
-    const [h, m] = t.split(":").map(Number);
-    return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
-  })();
+  const nextMedTime = nextMedicationEntry
+    ? nextMedicationEntry.nextSlot.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "Asia/Manila",
+      })
+    : null;
 
   const apptTime = nextAppt
     ? new Date(nextAppt.appointmentAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Manila" })
@@ -897,7 +985,15 @@ export default function PatientDashboardPage() {
 
       <PatientBottomNav activeItem="home" />
 
-      {selectedMed && <MedicationModal med={selectedMed} summary={summary} onClose={() => setSelectedMed(null)} />}
+      {selectedMed && data?.user ? (
+        <MedicationModal
+          med={selectedMed}
+          onClose={() => setSelectedMed(null)}
+          onMedicationLogged={refreshDashboardData}
+          patientUserId={data.user.userId}
+          summary={summary}
+        />
+      ) : null}
       {selectedAppt && <AppointmentModal appt={selectedAppt} onClose={() => setSelectedAppt(null)} />}
       {showMedicationSummary ? (
         <MedicationSummaryModal

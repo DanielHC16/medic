@@ -22,7 +22,9 @@ import {
 } from "@/lib/display";
 import {
   getLocalDateKey,
+  getMedicationIntervalHours,
   getMedicationDoseLimitForDate,
+  getMedicationLogsForDate,
   getNextReminderSlot,
   getTakenCountForDate,
 } from "@/lib/medication-reminders";
@@ -293,6 +295,16 @@ function getTakenButtonLabel(
     : `Mark dose taken (${takenCount}/${doseLimit})`;
 }
 
+function getAttentionLogForDate(
+  item: MedicationRecord,
+  logs: MedicationLogRecord[],
+  date: Date,
+) {
+  return getMedicationLogsForDate(logs, item.id, date).find(
+    (log) => log.status === "missed" || log.status === "skipped",
+  );
+}
+
 function buildMedicationPayload(draft: MedicationDraft) {
   const name = draft.name.trim();
   const dosageValue = draft.dosageValue.trim();
@@ -507,17 +519,23 @@ export function MedicationManager({
     try {
       const timestamp = new Date();
       const isoValue = timestamp.toISOString();
-      const localDate = getLocalDateKey(timestamp);
+      const scheduledSlot = getNextReminderSlot(item, logs, timestamp) ?? timestamp;
+      const scheduledFor = scheduledSlot.toISOString();
+      const localDate = getLocalDateKey(scheduledSlot);
+      const attentionLog = status === "taken"
+        ? getAttentionLogForDate(item, logs, timestamp)
+        : null;
 
       await runRequest(
         "/api/medication-logs",
         "POST",
         {
+          logId: attentionLog?.id,
           localDate,
           medicationId: item.id,
           patientUserId,
           scheduleId: item.scheduleId,
-          scheduledFor: isoValue,
+          scheduledFor,
           status,
           takenAt: status === "taken" ? isoValue : null,
         },
@@ -656,6 +674,9 @@ export function MedicationManager({
                                 {formatFrequencyLabel(item.scheduleFrequencyType)} /{" "}
                                 {formatTimeList(item.scheduleTimes)} /{" "}
                                 {formatDayList(item.scheduleDays)}
+                              </p>
+                              <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
+                                Minimum interval: every {getMedicationIntervalHours(item)} hours
                               </p>
                               <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
                                 {scheduledToday

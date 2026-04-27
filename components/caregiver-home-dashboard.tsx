@@ -22,6 +22,10 @@ import { AppointmentViewModal } from "@/components/appointment-view-modal";
 import { CareMemberBottomNav } from "@/components/care-member-bottom-nav";
 import { MedicationViewModal } from "@/components/medication-view-modal";
 import { formatClockTime, formatStatusLabel } from "@/lib/display";
+import {
+  getMedicationIntervalHours,
+  getNextReminderSlot,
+} from "@/lib/medication-reminders";
 import type {
   ActivitySummary,
   AppointmentRecord,
@@ -34,7 +38,6 @@ import type {
 type SupportedCareRole = Extract<RoleSlug, "caregiver" | "family_member">;
 
 const MANILA_TIMEZONE = "Asia/Manila";
-const WEEKDAY_OPTIONS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 type NextMedicationEntry = {
   medication: MedicationRecord;
@@ -71,43 +74,32 @@ function getMedicationCountsForToday(
 
 function getNextMedicationEntry(
   medications: MedicationRecord[],
+  logs: MedicationLogRecord[],
   now: Date,
 ): NextMedicationEntry | null {
-  const weekday = WEEKDAY_OPTIONS[now.getDay()];
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
   const activeMedications = medications.filter((medication) => medication.isActive);
   let nextEntry: NextMedicationEntry | null = null;
 
   for (const medication of activeMedications) {
-    if (
-      medication.scheduleDays.length > 0 &&
-      !medication.scheduleDays.includes(weekday)
-    ) {
+    const nextSlot = getNextReminderSlot(medication, logs, now);
+
+    if (!nextSlot) {
       continue;
     }
 
-    for (const time of medication.scheduleTimes) {
-      const [hourString, minuteString] = time.split(":");
-      const hours = Number(hourString);
-      const minutes = Number(minuteString);
+    const minutesUntil = Math.round((nextSlot.getTime() - now.getTime()) / 60000);
 
-      if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
-        continue;
-      }
-
-      const scheduleMinutes = hours * 60 + minutes;
-      const minutesUntil =
-        scheduleMinutes >= currentMinutes
-          ? scheduleMinutes - currentMinutes
-          : 24 * 60 - currentMinutes + scheduleMinutes;
-
-      if (!nextEntry || minutesUntil < nextEntry.minutesUntil) {
-        nextEntry = {
-          medication,
-          minutesUntil,
-          timeLabel: formatClockTime(time),
-        };
-      }
+    if (!nextEntry || minutesUntil < nextEntry.minutesUntil) {
+      nextEntry = {
+        medication,
+        minutesUntil,
+        timeLabel: nextSlot.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          hour12: true,
+          minute: "2-digit",
+          timeZone: MANILA_TIMEZONE,
+        }),
+      };
     }
   }
 
@@ -296,7 +288,11 @@ export function CaregiverHomeDashboard(props: {
   const selectedPatientId = selectedPatient?.user.userId ?? null;
   const todayKey = getManilaDateKey(nowManila);
   const nextMedicationEntry = selectedPatient
-    ? getNextMedicationEntry(selectedPatient.medications, nowManila)
+    ? getNextMedicationEntry(
+        selectedPatient.medications,
+        selectedPatient.recentMedicationLogs,
+        nowManila,
+      )
     : null;
   const upcomingAppointment = selectedPatient
     ? getUpcomingAppointment(selectedPatient.appointments, nowManila)
@@ -398,10 +394,13 @@ export function CaregiverHomeDashboard(props: {
       const response = await fetch("/api/medication-logs", {
         body: JSON.stringify({
           localDate: latestAlert.loggedForDate,
+          logId: latestAlert.id,
           medicationId: latestAlert.medicationId,
           notes: latestAlert.notes ?? "Follow-up from caregiver alert.",
           patientUserId: selectedPatientId,
+          scheduledFor: latestAlert.scheduledFor,
           status: "taken",
+          takenAt: new Date().toISOString(),
         }),
         headers: {
           "Content-Type": "application/json",
@@ -482,7 +481,7 @@ export function CaregiverHomeDashboard(props: {
               frequencyType: selectedMedication.scheduleFrequencyType ?? undefined,
               intervalHours:
                 selectedMedication.scheduleTimes.length > 1
-                  ? Math.round(24 / selectedMedication.scheduleTimes.length)
+                  ? getMedicationIntervalHours(selectedMedication)
                   : undefined,
               missed: counts.missed,
               name: selectedMedication.name,

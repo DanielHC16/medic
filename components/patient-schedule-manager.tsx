@@ -24,6 +24,8 @@ import {
   formatTimeList,
 } from "@/lib/display";
 import {
+  getLocalDateKey,
+  getMedicationIntervalHours,
   getMedicationDoseLimitForDate,
   getMedicationLogsForDate,
   getNextReminderSlot,
@@ -407,12 +409,65 @@ function MedicationDetailView(props: {
   logs: MedicationLogRecord[];
   onClose: () => void;
 }) {
+  const router = useRouter();
   const today = new Date();
+  const [message, setMessage] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<"missed" | "skipped" | "taken" | null>(null);
   const todayLogs = getMedicationLogsForDate(props.logs, props.item.id, today);
   const takenCountToday = getTakenCountForDate(props.item, props.logs, today);
   const doseLimitToday = getMedicationDoseLimitForDate(props.item, today);
   const attentionCountToday = todayLogs.filter((log) => log.status !== "taken").length;
+  const loggedDoseCountToday = todayLogs.filter((log) => log.status !== "queued_offline").length;
+  const nextReminderSlot = getNextReminderSlot(props.item, props.logs, today);
+  const attentionLog = todayLogs.find(
+    (log) => log.status === "missed" || log.status === "skipped",
+  );
   const totalLoggedCount = props.logs.filter((log) => log.medicationId === props.item.id).length;
+  const takenLocked = takenCountToday >= doseLimitToday;
+  const attentionLocked = loggedDoseCountToday >= doseLimitToday;
+
+  async function recordMedicationStatus(status: "missed" | "skipped" | "taken") {
+    setPendingAction(status);
+    setMessage(null);
+
+    try {
+      const now = new Date();
+      const scheduledSlot = nextReminderSlot ?? now;
+      const response = await fetch("/api/medication-logs", {
+        body: JSON.stringify({
+          localDate: getLocalDateKey(scheduledSlot),
+          logId: status === "taken" ? attentionLog?.id : undefined,
+          medicationId: props.item.id,
+          patientUserId: props.item.patientUserId,
+          scheduledFor: scheduledSlot.toISOString(),
+          status,
+          takenAt: status === "taken" ? now.toISOString() : null,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const payload = (await response.json()) as { message?: string; ok: boolean };
+
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.message || "Unable to update this medication.");
+      }
+
+      setMessage(
+        status === "taken"
+          ? "Medication logged as taken now."
+          : `Medication marked ${status}.`,
+      );
+      router.refresh();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Unable to update this medication.",
+      );
+    } finally {
+      setPendingAction(null);
+    }
+  }
 
   return (
     <section className="absolute inset-0 z-40 overflow-y-auto bg-[#EFF3F1] px-5 pb-32 pt-12">
@@ -509,6 +564,7 @@ function MedicationDetailView(props: {
         <div className="mt-4 grid gap-3 text-[13px] text-[#5C665F]">
           <p>Days: {props.item.scheduleDays.length > 0 ? props.item.scheduleDays.join(", ") : "Every day"}</p>
           <p>Times: {formatTimeList(props.item.scheduleTimes)}</p>
+          <p>Minimum interval: every {getMedicationIntervalHours(props.item)} hours</p>
           <p>Instructions: {props.item.instructions || "No extra instructions."}</p>
         </div>
       </div>
@@ -533,6 +589,37 @@ function MedicationDetailView(props: {
             <div className="text-[12px] font-bold text-[#73847B]">Total logs</div>
           </div>
         </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => recordMedicationStatus("taken")}
+            disabled={pendingAction !== null || takenLocked}
+            className="rounded-[14px] bg-[#4D6A56] px-4 py-3 text-[12px] font-black uppercase tracking-widest text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {pendingAction === "taken" ? "Saving..." : attentionLog ? "Take missed dose now" : "Take now"}
+          </button>
+          <button
+            type="button"
+            onClick={() => recordMedicationStatus("missed")}
+            disabled={pendingAction !== null || attentionLocked}
+            className="rounded-[14px] border border-[#D9E0DC] bg-[#F1F3F2] px-4 py-3 text-[12px] font-black uppercase tracking-widest text-[#1A231D] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {pendingAction === "missed" ? "Saving..." : "Mark missed"}
+          </button>
+          <button
+            type="button"
+            onClick={() => recordMedicationStatus("skipped")}
+            disabled={pendingAction !== null || attentionLocked}
+            className="rounded-[14px] border border-[#D9E0DC] bg-[#F1F3F2] px-4 py-3 text-[12px] font-black uppercase tracking-widest text-[#1A231D] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {pendingAction === "skipped" ? "Saving..." : "Skip"}
+          </button>
+        </div>
+        {message ? (
+          <p className="mt-3 rounded-[14px] bg-white px-4 py-3 text-[13px] font-semibold text-[#5C665F]">
+            {message}
+          </p>
+        ) : null}
       </div>
     </section>
   );
