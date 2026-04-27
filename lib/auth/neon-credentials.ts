@@ -1,4 +1,5 @@
-import { neonAuth } from "@/lib/auth/neon";
+import { cookies, headers } from "next/headers";
+
 import {
   findUserByEmailOrPhone,
   getUserById,
@@ -12,6 +13,7 @@ import type {
   InviteApprovalMode,
   RoleSlug,
 } from "@/lib/medic-types";
+import { getNeonAuthBaseUrl } from "@/lib/env";
 import { verifyPassword } from "@/lib/security/passwords";
 
 type RegisterWithNeonInput = {
@@ -59,6 +61,8 @@ function getNeonAuthErrorMessage(result: unknown) {
   return (
     getNestedString(error, "message") ||
     getNestedString(error, "statusText") ||
+    getNestedString(result, "message") ||
+    getNestedString(result, "statusText") ||
     "Neon Auth rejected the request."
   );
 }
@@ -67,13 +71,161 @@ function getNeonAuthUserId(result: unknown) {
   const data = getNestedObject(result, "data");
   const user = getNestedObject(data, "user");
   const sessionUser = getNestedObject(getNestedObject(data, "session"), "user");
+  const topLevelUser = getNestedObject(result, "user");
+  const topLevelSessionUser = getNestedObject(getNestedObject(result, "session"), "user");
 
   return (
     getNestedString(user, "id") ||
     getNestedString(sessionUser, "id") ||
+    getNestedString(topLevelUser, "id") ||
+    getNestedString(topLevelSessionUser, "id") ||
     getNestedString(data, "id") ||
     getNestedString(result, "id")
   );
+}
+
+function getOriginFromUrl(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+async function assertSameOriginAuthRequest() {
+  const headerStore = await headers();
+  const requestOrigin =
+    getOriginFromUrl(headerStore.get("origin")) ||
+    getOriginFromUrl(headerStore.get("referer"));
+
+  if (!requestOrigin) {
+    return;
+  }
+
+  const host = headerStore.get("x-forwarded-host") || headerStore.get("host");
+  const protocol =
+    headerStore.get("x-forwarded-proto") ||
+    (host?.startsWith("localhost") || host?.startsWith("127.0.0.1")
+      ? "http"
+      : "https");
+  const expectedOrigin = host ? `${protocol}://${host}` : null;
+  const vercelOrigin = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
+
+  if (
+    requestOrigin !== expectedOrigin &&
+    requestOrigin !== vercelOrigin
+  ) {
+    throw new Error("Invalid origin");
+  }
+}
+
+function parseSetCookie(setCookieHeader: string) {
+  const [nameAndValue, ...attributes] = setCookieHeader.split(";");
+  const valueSeparatorIndex = nameAndValue.indexOf("=");
+
+  if (valueSeparatorIndex <= 0) {
+    return null;
+  }
+
+  const cookie = {
+    name: nameAndValue.slice(0, valueSeparatorIndex).trim(),
+    value: decodeURIComponent(nameAndValue.slice(valueSeparatorIndex + 1)),
+    options: {
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax" as const,
+      secure: process.env.NODE_ENV === "production",
+    } as {
+      httpOnly?: boolean;
+      maxAge?: number;
+      partitioned?: boolean;
+      path?: string;
+      sameSite?: "lax" | "none" | "strict";
+      secure?: boolean;
+    },
+  };
+
+  for (const rawAttribute of attributes) {
+    const [rawName, rawValue] = rawAttribute.trim().split("=");
+    const name = rawName.toLowerCase();
+
+    if (name === "httponly") {
+      cookie.options.httpOnly = true;
+    } else if (name === "secure") {
+      cookie.options.secure = true;
+    } else if (name === "partitioned") {
+      cookie.options.partitioned = true;
+    } else if (name === "path" && rawValue) {
+      cookie.options.path = rawValue;
+    } else if (name === "max-age" && rawValue) {
+      const maxAge = Number(rawValue);
+      if (Number.isFinite(maxAge)) {
+        cookie.options.maxAge = maxAge;
+      }
+    } else if (name === "samesite" && rawValue) {
+      const sameSite = rawValue.toLowerCase();
+      if (sameSite === "lax" || sameSite === "none" || sameSite === "strict") {
+        cookie.options.sameSite = sameSite;
+      }
+    }
+  }
+
+  return cookie;
+}
+
+async function persistNeonAuthCookies(response: Response) {
+  const setCookieHeaders =
+    typeof response.headers.getSetCookie === "function"
+      ? response.headers.getSetCookie()
+      : [response.headers.get("set-cookie")].filter((value): value is string => Boolean(value));
+
+  if (setCookieHeaders.length === 0) {
+    return;
+  }
+
+  const cookieStore = await cookies();
+
+  for (const setCookieHeader of setCookieHeaders) {
+    const cookie = parseSetCookie(setCookieHeader);
+
+    if (!cookie) {
+      continue;
+    }
+
+    cookieStore.set(cookie.name, cookie.value, cookie.options);
+  }
+}
+
+async function callNeonEmailAuthEndpoint(
+  path: "sign-in/email" | "sign-up/email",
+  body: Record<string, string>,
+) {
+  await assertSameOriginAuthRequest();
+
+  const baseUrl = getNeonAuthBaseUrl();
+  const url = new URL(path, baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`);
+  const response = await fetch(url, {
+    body: JSON.stringify(body),
+    headers: {
+      "Content-Type": "application/json",
+      Origin: new URL(baseUrl).origin,
+      "x-neon-auth-proxy": "nextjs",
+    },
+    method: "POST",
+  });
+  const result: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(getNeonAuthErrorMessage(result) || response.statusText);
+  }
+
+  await persistNeonAuthCookies(response);
+
+  return result;
 }
 
 async function signUpNeonUser(input: {
@@ -81,7 +233,7 @@ async function signUpNeonUser(input: {
   name: string;
   password: string;
 }): Promise<NeonAuthResult> {
-  const result = await neonAuth.signUp.email({
+  const result = await callNeonEmailAuthEndpoint("sign-up/email", {
     email: input.email,
     name: input.name,
     password: input.password,
@@ -101,7 +253,7 @@ async function signInNeonUser(input: {
   email: string;
   password: string;
 }): Promise<NeonAuthResult> {
-  const result = await neonAuth.signIn.email({
+  const result = await callNeonEmailAuthEndpoint("sign-in/email", {
     email: input.email,
     password: input.password,
   });
